@@ -1,0 +1,19 @@
+# ============================================================
+# 水利 / 感知 一张图 推送脚本 —— Token 空模板
+# ------------------------------------------------------------
+# 用法：
+#   1) 复制本文件为 .gujian_token（去掉 .example 后缀）
+#        cp .gujian_token.example .gujian_token
+#   2) 把下面这一行替换成你自己的 GitHub PAT（fine-grained 或 classic）
+#   3) .gujian_token 已被 .gitignore 忽略，绝不会进仓库 / 不会泄露
+#
+# 在哪拿 token：
+#   GitHub → 右上角头像 → Settings → Developer settings
+#     → Personal access tokens → 选 fine-grained 或 classic
+#   - fine-grained PAT：需对 4 个仓库（shuili-yitu / shuili-yitu5090
+#     / ganzhi-yitu / ganzhi-yitu5090）授予 Contents: Read/Write，
+#     或创建时直接选 "All repositories"
+#   - classic PAT：需 repo 权限
+# ============================================================
+
+github_pat_替换为你的真实token

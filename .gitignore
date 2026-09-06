@@ -1,0 +1,25 @@
+# ===== 构建产物 / 二进制（绝不入库）=====
+*.apk
+*.apk.idsig
+*.idsig
+*.zip
+*.jks
+keystore.jks
+dex/
+obj/
+res_compiled.zip
+
+# ===== 本地备份 / 临时 =====
+*.bak
+*.bak_*
+*_bak_*/
+
+# ===== 本地 GitHub Token（仅本机持有，被忽略，绝不入库）=====
+# 公开版推送会自动排除 assets/ai_seed.js（含 OpenRouter Key）；内部版保留密钥不变。
+# 把 PAT 写入仓库根 .gujian_token（或 .env 的 GUJIAN_GITHUB_TOKEN），脚本自动读取。
+.gujian_token
+.env
+
+# ===== 系统 =====
+.DS_Store
+Thumbs.db
