@@ -1,6 +1,6 @@
 # 水利工程一张图（离线 WebView）
 
-水利工程基础信息一张图（离线 WebView App），package `com.shuili.yitu`，当前版本 v3.58。
+水利工程基础信息一张图（离线 WebView App），package `com.shuili.yitu`，当前版本 v3.59（公开测试版）。
 作者：小七。支持 Android / Windows(WebView2) / UOS(Linux deb) / iOS(PWA) 四端，数据离线内置。
 
 ## 工程结构

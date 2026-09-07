@@ -121,7 +121,7 @@ def collect_files(excl):
     return out
 
 
-def push_repo(repo, excl, msg_prefix):
+def push_repo(repo, excl, msg_prefix, demo_replace=None):
     print(f"\n########## 推送到 {repo} (脱敏排除: {excl or '无'}) ##########")
     files = collect_files(excl)
     total = sum(s for _, _, s in files)
@@ -146,7 +146,15 @@ def push_repo(repo, excl, msg_prefix):
 
     entries = []
     for rel, ab, sz in files:
-        with open(ab, "rb") as f:
+        src = ab
+        if demo_replace and rel in demo_replace:
+            demo = os.path.join(LOCAL, demo_replace[rel])
+            if os.path.isfile(demo):
+                src = demo
+                print(f"  * {rel} -> 演示数据(脱敏) {demo_replace[rel]}")
+            else:
+                print(f"  [缺demo] {rel} 保持原文件（未找到 {demo_replace[rel]}）")
+        with open(src, "rb") as f:
             b64 = base64.b64encode(f.read()).decode()
         code, j = curl("POST", f"https://api.github.com/repos/{repo}/git/blobs",
                       {"content": b64, "encoding": "base64"})
@@ -201,15 +209,27 @@ def main():
     args = ap.parse_args()
 
     if args.repo:
-        push_repo(args.repo, args.exclude, "chore:")
+        # 公开仓(…-5090pub)：①排除 ai_seed.js（含个人密钥，GitHub 密钥扫描会拦）；
+        # ②data.js / kb_building_seed.js 用 .demo.js 替换，杜绝真实内部数据外泄
+        if "5090pub" in args.repo:
+            excl = list(args.exclude) + ["assets/ai_seed.js"]
+            DEMO = {"assets/data.js": "assets/data.demo.js",
+                    "assets/kb_building_seed.js": "assets/kb_building_seed.demo.js"}
+            push_repo(args.repo, excl, "chore: 公开版", DEMO)
+        else:
+            push_repo(args.repo, args.exclude, "chore:")
         return
     if APP not in APP_MAP:
         print(f"未知应用目录 {APP}，请用 --repo 指定目标仓库")
         sys.exit(1)
     pub = APP_MAP[APP]["pub"]
     int_ = APP_MAP[APP]["int"]
+    # 公开仓数据脱敏（2026-09-07 机制修复）：data.js / kb_building_seed.js 用 .demo.js 替换，
+    # 杜绝真实内部数据随公开仓外泄（此前仅排除 ai_seed.js，曾把内部种子带入公开仓历史）。
+    DEMO = {"assets/data.js": "assets/data.demo.js",
+            "assets/kb_building_seed.js": "assets/kb_building_seed.demo.js"}
     push_repo(int_[0], int_[1], "chore: 内部版")
-    push_repo(pub[0], pub[1], "chore: 公开版")
+    push_repo(pub[0], pub[1], "chore: 公开版", DEMO)
 
 
 if __name__ == "__main__":
