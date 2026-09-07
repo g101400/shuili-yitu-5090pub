@@ -946,15 +946,58 @@
     }).join("\n");
   }
   // v3.53：导出改为主流知识库格式 md / txt / html（Obsidian/Notion 等可直接导入），zip 备份退役
+  // v3.5x：知识库导出——先弹窗让用户自定义文件名（默认 知识库_YYYYMMDD.md/txt/html）与保存文件夹（安卓原生可指定目录），再导出
   function kbExport(fmt) {
     try {
       var o = kbLoad();
       if (!o.index.length) { toast("知识库为空，无可导出内容"); return; }
-      var date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      var fn = "kb_" + (CFG.domain || "export") + "_" + date + "." + fmt;
-      downloadText(fn, kbBuildDoc(fmt, o));
-      toast("已导出 " + o.index.length + " 条（" + String(fmt).toUpperCase() + "）");
+      var now = new Date();
+      function pad2(n) { return (n < 10 ? "0" : "") + n; }
+      var dateS = "" + now.getFullYear() + pad2(now.getMonth() + 1) + pad2(now.getDate());
+      var defName = "知识库_" + dateS + "." + fmt;
+      var html =
+        '<p style="font-size:13px;color:#3a2e28;line-height:1.6">将导出知识库 <b>' + o.index.length + '</b> 条为 <b>' + String(fmt).toUpperCase() + '</b> 文件（md/txt/html 均可被 Obsidian/Notion 等主流知识库直接导入）。</p>' +
+        '<label class="f" style="display:block;margin:8px 0 4px">文件名（默认：知识库_' + dateS + '.' + fmt + '）</label>' +
+        '<input class="f" id="kbExpName" style="width:100%;box-sizing:border-box" value="' + esc(defName) + '">' +
+        '<label class="f" style="display:block;margin:8px 0 4px">保存文件夹（安卓原生可指定目录；Win/统信/网页留空=系统下载目录）</label>' +
+        '<input class="f" id="kbExpDir" style="width:100%;box-sizing:border-box" placeholder="如：知识库导出（可留空）">' +
+        '<div class="form-actions">' +
+          '<button class="btn-save" id="kbExpOk" style="flex:1">⬇️ 导出</button>' +
+          '<button class="btn-cancel" id="kbExpCancel" style="flex:1">取消</button>' +
+        '</div>';
+      openGen("知识库导出（" + String(fmt).toUpperCase() + "）", html);
+      q("kbExpOk").onclick = function () {
+        var name = (q("kbExpName") && q("kbExpName").value || "").trim() || defName;
+        if (!/\.[a-zA-Z0-9]+$/.test(name)) name = name + "." + fmt;
+        var folder = (q("kbExpDir") && q("kbExpDir").value || "").trim();
+        kbExportSave(name, folder, fmt, o);
+      };
+      q("kbExpCancel").onclick = function () { kbCloseGen(); };
     } catch (e) { try { toast("导出失败：" + (e && e.message || e)); } catch (e2) {} }
+  }
+  function kbExportSave(name, folder, fmt, o) {
+    try {
+      var doc = kbBuildDoc(fmt, o);
+      var A = (typeof window !== "undefined") ? window.Android : null;
+      var saved = false, where = "";
+      if (A && typeof A.saveBlobTo === "function") {
+        var b64 = kbToB64(doc);
+        if (b64) { A.saveBlobTo("data:application/octet-stream;base64," + b64, folder || "", name); saved = true; where = "Download/" + (folder || "") + "/" + name; }
+      }
+      if (!saved) {
+        var mime = (fmt === "html") ? "text/html;charset=utf-8" : "text/plain;charset=utf-8";
+        downloadBlob(name, new Blob([doc], { type: mime }));
+        where = "系统下载目录：" + name + (folder ? "（当前环境不支持自选文件夹，已忽略：" + folder + "）" : "");
+      }
+      toast("已导出 " + o.index.length + " 条：" + where);
+      kbCloseGen();
+    } catch (e) { try { toast("导出失败：" + (e && e.message || e)); } catch (e2) {} }
+  }
+  function kbToB64(s) {
+    try { return btoa(unescape(encodeURIComponent(s))); } catch (e) { return ""; }
+  }
+  function kbCloseGen() {
+    try { if (global.closeSheet) global.closeSheet("sheetGen"); else if (window.closeSheet) window.closeSheet("sheetGen"); } catch (e) {}
   }
   function kbBuildDoc(fmt, o) {
     var parts = o.index.map(function (m) {
