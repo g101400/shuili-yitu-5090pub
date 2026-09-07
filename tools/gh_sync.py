@@ -13,12 +13,12 @@ import os, sys, json, base64, subprocess, tempfile, datetime, argparse
 # 内部版仓库名末尾 5090、私有、保留密钥；公开版排除 ai_seed.js（脱敏）
 APP_MAP = {
     "shuili-v329": {
-        "pub": ("g101400/shuili-yitu",     ["assets/ai_seed.js"]),
-        "int": ("g101400/shuili-yitu5090", []),
+        "pub": ("g101400/shuili-yitu-5090pub", ["assets/ai_seed.js"]),
+        "int": ("g101400/shuili-yitu5090",      []),
     },
     "perc-v13": {
-        "pub": ("g101400/ganzhi-yitu",     ["assets/ai_seed.js"]),
-        "int": ("g101400/ganzhi-yitu5090", []),
+        "pub": ("g101400/ganzhi-yitu-5090pub", ["assets/ai_seed.js"]),
+        "int": ("g101400/ganzhi-yitu5090",      []),
     },
 }
 
