@@ -35,6 +35,25 @@ shuili-v329/
 
 内部版仓库名末尾带 `5090`、设为私有；公开版以 `-5090pub` 结尾、设为公开、不含密钥（方案 C 命名，避免与内部版撞名）。
 
+## 发布安装包到 GitHub（Release）与 App 内升级
+
+两仓库都用 **GitHub Releases** 承载各自渠道的四平台可部署安装包（Android APK / Windows MSI·EXE / 统信 UOS deb×4架构 / iOS PWA 托管 zip）。App「设置 → GitHub 升级（检测新版）」会查询本应用**当前渠道**（公开版查 `-5090pub`、内部版查 `5090` 私有仓）的最新 Release，比对版本并列出各平台下载。
+
+发新版时按渠道各跑一次（从仓库根，token 已配好）：
+```bash
+# 公开版（奇数版本，如 v3.59）
+python3 tools/gh_release.py --repo g101400/shuili-yitu-5090pub --tag v3.59 --name "水利工程一张图 v3.59（公开测试版）" \
+  --notes "本次更新说明" \
+  --asset "D:/Users/Claw/出包_<日期>/android/xxx.apk" \
+  --asset "D:/Users/Claw/出包_<日期>/ios/xxx_可托管.zip" \
+  --asset "D:/Users/Claw/出包_<日期>/uos-shuili" \
+  --asset "D:/Users/Claw/出包_<日期>/win/xxx_Setup.exe" \
+  --asset "D:/Users/Claw/出包_<日期>/win/xxx_Setup.msi"
+
+# 内部版（偶数版本，如 v3.60）→ 仓库名换 shuili-yitu5090，其余同上
+```
+脚本自动：打 tag → 建/更新 Release → 上传全部四平台安装包（同名自动替换）。下载页：`https://github.com/g101400/shuili-yitu5090/releases`（内部）与 `.../shuili-yitu-5090pub/releases`（公开）。
+
 ## 同步到 GitHub
 
 本环境 git 直连被代理拦截，统一用 `tools/gh_sync.py`（GitHub REST API 推送，增量同步）。
