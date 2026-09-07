@@ -3407,7 +3407,9 @@ function orgValOrDefault(b, k) {
 
       { k: "upImport", ico: "📥", t: "升级数据导入", f: upOpenImport },
 
-      { k: "upUpgrade", ico: "🔄", t: "软件升级（检测新版）", f: upOpenUpgrade }
+      { k: "upUpgrade", ico: "🔄", t: "软件升级（检测新版）", f: upOpenUpgrade },
+
+      { k: "ghUpgrade", ico: "🐙", t: "GitHub 升级（检测新版）", f: ghOpenUpgrade }
 
     ])});
 
@@ -13116,3 +13118,87 @@ function upOpenUrl(ev, url) {
   return false;
 }
 window.upOpenUrl = upOpenUrl;
+
+/* ===== GitHub 升级（5090 仓库发布渠道）=====
+ * 三应用通用：设置菜单「GitHub 升级（检测新版）」→ 查 GitHub Releases 最新版。
+ * 水利奇偶双通道：公开版(奇数)→shuili-yitu-5090pub；内部版(偶数)→shuili-yitu5090。 */
+var upGithubCfg = { public: "g101400/shuili-yitu-5090pub", internal: "g101400/shuili-yitu5090" };
+function ghChannel() {
+  if (typeof getReleaseChannel === "function") { try { return getReleaseChannel(); } catch (e) {} }
+  return "single";
+}
+function ghRepo() {
+  var m = (typeof upGithubCfg !== "undefined") ? upGithubCfg : {};
+  var ch = ghChannel();
+  return m[ch] || m["single"] || "";
+}
+function ghPlat() {
+  var ua = (navigator && navigator.userAgent) || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  if (/Windows/i.test(ua)) return "win";
+  if (/Linux|UOS|Deepin|UnionTech/i.test(ua)) return "uos";
+  return "web";
+}
+function ghAssetLabel(name) {
+  name = String(name || "");
+  if (/\.apk$/i.test(name)) return "📱 Android";
+  if (/Setup\.msi$/i.test(name)) return "🪟 Windows MSI";
+  if (/Setup\.exe$/i.test(name)) return "🪟 Windows EXE";
+  if (/\.deb$/i.test(name)) {
+    var m = name.match(/\.(amd64|loongarch64|arm64|mips64el)\.deb$/i);
+    return "🐧 统信UOS " + (m ? m[1] : "deb");
+  }
+  if (/iOS|可托管/i.test(name)) return "🍎 iOS PWA 托管包";
+  return name;
+}
+function ghOpenUpgrade() {
+  upStyle();
+  var repo = ghRepo();
+  var ch = ghChannel();
+  var html =
+    '<div class="up-info">当前：<b>' + esc((typeof upCfg !== "undefined" && upCfg.appName) ? upCfg.appName : "") + "</b> · 版本 <b>" + esc((typeof APP_VERSION !== "undefined") ? APP_VERSION : "?") + "</b> · 渠道 <b>" + esc(ch === "public" ? "公开版" : (ch === "internal" ? "内部版" : "不分内外")) + "</b><br>GitHub 仓库：<b>" + esc(repo || "未配置") + "</b></div>" +
+    '<div style="font-size:13px;color:#555;margin:6px 0">从 GitHub Releases 检测该渠道最新版并下载四平台安装包（公开版免登录；内部版仓库私有，需 GitHub 账号且有该仓库权限）。</div>' +
+    '<div class="up-btns">' +
+      '<button class="btn-save" onclick="ghCheck()">🔍 检测 GitHub 新版</button>' +
+      '<button class="btn-cancel" onclick="closeSheet(\'sheetGen\')">关闭</button>' +
+    "</div>" +
+    '<div id="ghMsg" style="font-size:13px;margin-top:10px;min-height:18px"></div>';
+  $("genTitle").textContent = "GitHub 升级";
+  $("genBody").innerHTML = html;
+  openSheet("sheetGen");
+}
+function ghCheck() {
+  var msg = document.getElementById("ghMsg");
+  var repo = ghRepo();
+  if (!repo) { if (msg) msg.innerHTML = '<span class="up-warn">未配置 GitHub 仓库，请联系管理员。</span>'; return; }
+  if (msg) msg.innerHTML = "正在连接 GitHub 检测…";
+  var plat = ghPlat();
+  fetch("https://api.github.com/repos/" + repo + "/releases/latest", { cache: "no-store" })
+    .then(function (r) {
+      if (r.status === 404 || r.status === 401 || r.status === 403) throw new Error("私有仓库需登录或未发布 Release");
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function (rel) {
+      var local = (typeof APP_VERSION !== "undefined") ? String(APP_VERSION) : "";
+      var remote = String(rel.tag_name || "").replace(/^v/i, "");
+      var cmp = upCmpVer(remote, local);
+      var head = (cmp > 0) ? '<span class="up-ok">发现新版本 <b>' + esc(remote) + "</b></span>"
+             : (cmp === 0) ? '<span class="up-ok">已是最新（' + esc(local) + "）</span>"
+             : '当前版本（' + esc(local) + "）高于 GitHub 最新（" + esc(remote) + "）";
+      var assets = (rel.assets || []).map(function (a) {
+        var lbl = ghAssetLabel(a.name);
+        var on = (lbl.indexOf("Android") >= 0 && plat === "android") ||
+                 (lbl.indexOf("Windows") >= 0 && plat === "win") ||
+                 (lbl.indexOf("UOS") >= 0 && plat === "uos") ||
+                 (lbl.indexOf("iOS") >= 0 && plat === "ios");
+        return '<div class="up-row">' + (on ? "<b>▶</b> " : "") + '<span class="up-k">' + esc(lbl) + '</span>　<a href="' + esc(a.browser_download_url) + '" target="_blank" rel="noopener" onclick="return upOpenUrl(event, this.href)">下载</a>　<small>' + esc(a.name) + " (" + (a.size / 1048576).toFixed(1) + "MB)</small></div>";
+      }).join("");
+      if (msg) msg.innerHTML = head + (rel.body ? "<br><small style='color:#888'>" + esc(rel.body.slice(0, 200)) + "</small>" : "") + "<div style='margin-top:6px'>" + assets + "</div>";
+    })
+    .catch(function (e) {
+      if (msg) msg.innerHTML = '<span class="up-warn">检测失败：' + esc((e && e.message) ? e.message : "网络不可用") + '。</span><div class="up-btns" style="margin-top:8px"><button class="btn-save" onclick="upOpenUrl(event,\'https://github.com/' + repo + '/releases/latest\')">在浏览器打开发布页</button></div>';
+    });
+}
+window.ghOpenUpgrade = ghOpenUpgrade; window.ghCheck = ghCheck;

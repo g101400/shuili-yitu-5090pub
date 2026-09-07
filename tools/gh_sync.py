@@ -176,11 +176,20 @@ def push_repo(repo, excl, msg_prefix):
         sys.exit(1)
     commit_sha = j["sha"]
 
-    code, j = curl("PATCH", f"https://api.github.com/repos/{repo}/git/refs/heads/main",
-                  {"sha": commit_sha, "force": True})
-    print("  ref HTTP", code, j.get("message", j.get("ref")))
-    if code not in (200, 201):
-        print("  ref 失败:", j)
+    # GitHub Git Data API 偶发 422（ref 库尚未观察到刚创建的 commit）-> 重试
+    import time
+    last_j = None
+    for attempt in range(1, 4):
+        code, j = curl("PATCH", f"https://api.github.com/repos/{repo}/git/refs/heads/main",
+                      {"sha": commit_sha, "force": True})
+        print(f"  ref HTTP {code} (尝试 {attempt}/3) {j.get('message', j.get('ref',''))}")
+        if code in (200, 201):
+            break
+        last_j = j
+        if attempt < 3:
+            time.sleep(2)
+    else:
+        print("  ref 失败:", last_j)
         sys.exit(1)
     print("  完成 远程 main =", commit_sha)
 
