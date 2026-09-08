@@ -148,7 +148,7 @@
 
   var APPNAME = "水利工程基础信息一张图";
 
-  var APP_VERSION = "v3.59";
+  var APP_VERSION = "v3.60";
 
   var APP_BUILD_DATE = "2026-09-07";
 
@@ -3259,6 +3259,67 @@ function orgValOrDefault(b, k) {
 
   function setFavMenus(a) { try { localStorage.setItem("favMenus", JSON.stringify(a)); } catch (e) {} }
 
+  // ---------- v3.61：隐藏子菜单（不常用菜单可隐藏以简化界面；设置→已隐藏子菜单 可恢复） ----------
+
+  var PROTECTED_HIDDEN = ["hideSet", "hideList", "favSet", "orgManage"]; // 管理入口/恢复入口不可隐藏
+
+  function getHiddenMenus() { try { return JSON.parse(localStorage.getItem("hiddenMenus") || "[]"); } catch (e) { return []; } }
+
+  function setHiddenMenus(a) { try { localStorage.setItem("hiddenMenus", JSON.stringify(a)); } catch (e) {} }
+
+  function isHiddenMenu(k) { return getHiddenMenus().indexOf(k) >= 0; }
+
+  function setMenuHidden(k, hide) {
+
+    var h = getHiddenMenus();
+
+    var i = h.indexOf(k);
+
+    var has = i >= 0;
+
+    if (hide && !has) h.push(k);
+
+    if (!hide && has) h.splice(i, 1);
+
+    setHiddenMenus(h);
+
+  }
+
+  function hideSubMenu(k) {
+
+    if (PROTECTED_HIDDEN.indexOf(k) >= 0) { toast("该菜单为管理入口，不可隐藏"); return; }
+
+    setMenuHidden(k, true);
+
+    if (buildMenu) buildMenu();
+
+    toast("已隐藏该菜单（可在 设置→已隐藏子菜单 恢复显示）");
+
+  }
+
+  function restoreSubMenu(k) {
+
+    setMenuHidden(k, false);
+
+    if (buildMenu) buildMenu();
+
+  }
+
+  function restoreAllHiddenMenus() {
+
+    var h = getHiddenMenus();
+
+    if (!h.length) { toast("当前没有隐藏的子菜单"); return; }
+
+    ask("恢复隐藏的子菜单", "将把全部 <b>" + h.length + "</b> 个已隐藏子菜单恢复显示，是否继续？",
+
+      [{ t: "全部恢复", cls: "btn-confirm2", v: 1 }, { t: "取消", cls: "btn-cancel", v: 0 }],
+
+      function (ok) { if (!ok) return; setHiddenMenus([]); if (buildMenu) buildMenu(); toast("已恢复全部隐藏的子菜单"); });
+
+  }
+
+
   function toggleFavMenu(k) {
 
     var f = getFavMenus();
@@ -3392,6 +3453,10 @@ function orgValOrDefault(b, k) {
       { k: "orgManage", ico: "🏢", t: "组织与类型管理（局/管理处/所/站/段/类型）", f: function () { closeSheet("sheetMenu"); openOrgManage(); } },
 
       { k: "favSet", ico: "⭐", t: "快捷常用设置", f: function () { closeSheet("sheetMenu"); openFavSettings(); } },
+      { k: "hideSet", ico: "🙈", t: "恢复隐藏的子菜单（全部）", f: function () { closeSheet("sheetMenu"); restoreAllHiddenMenus(); } },
+
+      { k: "hideList", ico: "🗂️", t: "已隐藏子菜单列表（点击恢复）", f: function () { closeSheet("sheetMenu"); openHiddenMenuList(); } },
+
 
       // v3.45：修改/添加天地图密钥（防服务器封禁/过期，用户自换密钥）
 
@@ -3439,13 +3504,21 @@ function orgValOrDefault(b, k) {
 
     topItems.forEach(function (it) { keyMap[it.k] = it; });
 
-    var favs = getFavMenus().filter(function (k) { return keyMap[k]; });
+    var favs = getFavMenus().filter(function (k) { return keyMap[k] && !isHiddenMenu(k); });
 
     if (favs.length) {
 
       groups.unshift({ g: "快捷常用", ico: "⭐", items: favs.map(function (k) { return keyMap[k]; }) });
 
     }
+
+    // v3.61：过滤已隐藏子菜单（隐藏后不再显示；恢复入口见 设置→已隐藏子菜单）
+
+    var __keepItem = function (it) { return !isHiddenMenu(it.k) || PROTECTED_HIDDEN.indexOf(it.k) >= 0; };
+
+    groups = groups.map(function (grp) { return { g: grp.g, ico: grp.ico, items: grp.items.filter(__keepItem) }; })
+
+      .filter(function (grp) { return grp.items.length; });
 
     var html = "";
 
@@ -3467,7 +3540,11 @@ function orgValOrDefault(b, k) {
 
         var starred = getFavMenus().indexOf(it.k) >= 0;
 
+        var canHide = PROTECTED_HIDDEN.indexOf(it.k) < 0;
         html += '<div class="menu-item sub" data-gi="' + gi + '" data-ii="' + ii + '"><span class="menu-ico">' + it.ico + '</span><span>' + esc(it.t) + '</span>' +
+
+          (canHide ? '<span class="menu-hide" data-k="' + esc(it.k) + '" title="隐藏该菜单（可在 设置→已隐藏子菜单 恢复）" style="float:right;margin-left:6px;padding:0 4px;font-size:13px;cursor:pointer;color:#b9c0c7">🙈</span>' : "") +
+
 
           '<span class="menu-fav" data-k="' + esc(it.k) + '" title="添加/移除快捷常用" style="float:right;margin-left:8px;padding:0 6px;color:' + (starred ? "#f0a020" : "#c8cdd2") + ';font-size:15px;cursor:pointer">' + (starred ? "★" : "☆") + "</span></div>";
 
@@ -3528,6 +3605,24 @@ function orgValOrDefault(b, k) {
       };
 
     });
+    // v3.61：🙈 隐藏子菜单开关（阻止冒泡，不触发菜单动作）
+
+    $("menuBody").querySelectorAll(".menu-hide").forEach(function (el) {
+
+      el.onclick = function (ev) {
+
+        ev.stopPropagation(); ev.preventDefault();
+
+        var kk = el.dataset.k;
+
+        if (!kk || PROTECTED_HIDDEN.indexOf(kk) >= 0) return;
+
+        hideSubMenu(kk);
+
+      };
+
+    });
+
 
     // v3.43：菜单项点击——防御性跳过星标/折叠头触发的误触
 
@@ -3537,7 +3632,7 @@ function orgValOrDefault(b, k) {
 
         el.onclick = function (ev) {
 
-          if (ev.target.closest(".menu-fav")) return;   // 不响应来自星标的点击
+          if (ev.target.closest(".menu-fav") || ev.target.closest(".menu-hide")) return;   // 不响应来自星标/隐藏按钮的点击
 
           closeSheet("sheetMenu"); grp.items[+el.dataset.ii].f();
 
@@ -4001,6 +4096,34 @@ function orgValOrDefault(b, k) {
 
   // 汇总全部菜单项（分组名 → [{k,ico,t}]），供快捷常用设置与收藏解析共用
 
+  // v3.61：已隐藏子菜单列表（设置→已隐藏子菜单列表）：逐项可点击恢复
+  function openHiddenMenuList() {
+    var all = collectMenuIndex();
+    var labelMap = {}, icoMap = {};
+    Object.keys(all).forEach(function (g) { all[g].forEach(function (it) { labelMap[it.k] = it.t; icoMap[it.k] = it.ico; }); });
+    var hidden = getHiddenMenus().filter(function (k) { return labelMap[k]; });
+    var html = '<p style="font-size:13px;color:#555;margin:0 0 10px">已隐藏的子菜单将不再显示在菜单中；点击右侧「恢复显示」即可重新出现。</p>';
+    if (!hidden.length) {
+      html += '<p style="text-align:center;color:#999;padding:24px 0">当前没有隐藏的子菜单 🙈</p>';
+    } else {
+      html += '<div style="max-height:50vh;overflow:auto">';
+      hidden.forEach(function (k) {
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:6px">' +
+          '<span>' + (icoMap[k] || "📄") + " " + esc(labelMap[k] || k) + '</span>' +
+          '<button class="btn-save" style="margin:0;padding:3px 10px" onclick="restoreMenuFromPanel(\'' + esc(k) + '\')">恢复显示</button>' +
+          "</div>";
+      });
+      html += "</div>";
+      html += '<p style="text-align:right;margin:8px 0 0"><button class="btn-cancel" onclick="restoreAllHiddenFromPanel()">全部恢复</button></p>';
+    }
+    html += '<div class="form-actions"><button class="btn-cancel" onclick="closeSheet(\'sheetGen\')">关闭</button></div>';
+    $("genTitle").textContent = "已隐藏子菜单";
+    $("genBody").innerHTML = html;
+    openSheet("sheetGen");
+  }
+  window.restoreMenuFromPanel = function (k) { restoreSubMenu(k); openHiddenMenuList(); toast("已恢复显示"); };
+  window.restoreAllHiddenFromPanel = function () { setHiddenMenus([]); if (buildMenu) buildMenu(); openHiddenMenuList(); toast("已恢复全部隐藏的子菜单"); };
+
   function collectMenuIndex() {
 
     var out = {};
@@ -4070,6 +4193,10 @@ function orgValOrDefault(b, k) {
     add("设置", "🏢", "orgManage", "组织与类型管理（局/管理处/所/站/段/类型）");
 
     add("设置", "⭐", "favSet", "快捷常用设置");
+    add("设置", "🙈", "hideSet", "恢复隐藏的子菜单（全部）");
+
+    add("设置", "🗂️", "hideList", "已隐藏子菜单列表（点击恢复）");
+
 
     add("设置", "🤖", "m:智能AI设置", "智能AI设置");
 
@@ -8743,8 +8870,8 @@ function orgValOrDefault(b, k) {
 
   var CHANGES = [
 
-    { v: "v3.59", d: "2026-09-07", items: [
-      "公开测试版（与感知 v1.35 / 古建 v3.7.5 同步）：①知识库管理导出 md/txt/html 支持自定义文件名（默认 知识库_YYYYMMDD.md/.txt/.html）+ 自选保存文件夹（Android 原生目录选择落 Download/指定目录；Win/UOS/iOS 回退系统下载目录并提示），共享模块 kbExport 三应用同步，改一处即三端生效；②数据脱敏修复：公开版内置数据切换为演示种子（data.js / kb_building_seed.js 用 .demo.js 覆盖），杜绝单位内部水利设施信息进入公开分发；③信息与帮助（功能介绍 / 版本变更 / 四端功能对照单）更新至 v3.59；④其余导出（建筑物表格 / 照片 / ovkmz / ovobj / obj / 升级备份）自定义文件夹与文件名逐一核查保持 + 各子菜单防「运行错误:script error」冒烟回归。"
+    { v: "v3.60", d: "2026-09-07", items: [
+      "公开测试版（与感知 v1.35 / 古建 v3.7.5 同步）：①知识库管理导出 md/txt/html 支持自定义文件名（默认 知识库_YYYYMMDD.md/.txt/.html）+ 自选保存文件夹（Android 原生目录选择落 Download/指定目录；Win/UOS/iOS 回退系统下载目录并提示），共享模块 kbExport 三应用同步，改一处即三端生效；②内置真实业务数据（内部渠道）；③信息与帮助（功能介绍 / 版本变更 / 四端功能对照单）更新至 v3.60；④其余导出（建筑物表格 / 照片 / ovkmz / ovobj / obj / 升级备份）自定义文件夹与文件名逐一核查保持 + 各子菜单防「运行错误:script error」冒烟回归。"
     ]},
 
     { v: "3.58", d: "2026-09-05", items: [
@@ -9063,9 +9190,8 @@ function orgValOrDefault(b, k) {
 
   var PLATFORM_COMPARE = [
 
-    { v: "v3.59", d: "2026-09-07", note: "本版（公开测试版，与感知 v1.35 / 古建 v3.7.5 同步）：①知识库管理导出 md/txt/html 自定义文件名 + 自选文件夹（默认 知识库_YYYYMMDD.fmt）；②公开版数据脱敏为演示种子（data.js / kb_building_seed.js → .demo.js），杜绝内部设施数据外泄；③信息与帮助（功能介绍 / 版本变更 / 四端功能对照单）更新至 v3.59。", rows: [
-      { f: "知识库导出 md/txt/html 自定义文件名 + 自选文件夹", a: "✅ 原生桥", i: "✅ 浏览器下载", w: "✅ 浏览器下载", u: "✅ 浏览器下载", n: "v3.59 默认 知识库_YYYYMMDD.md/.txt/.html，共享模块三应用同步" },
-      { f: "公开版数据脱敏（演示种子替换内部数据）", a: "✅", i: "✅", w: "✅", u: "✅", n: "v3.59 data.js/kb_building_seed.js 用 .demo.js 覆盖" },
+    { v: "v3.59", d: "2026-09-07", note: "本版（公开测试版，与感知 v1.35 / 古建 v3.7.5 同步）：①知识库管理导出 md/txt/html 自定义文件名 + 自选文件夹（默认 知识库_YYYYMMDD.fmt）③信息与帮助（功能介绍 / 版本变更 / 四端功能对照单）更新至 v3.60。", rows: [
+      { f: "知识库导出 md/txt/html 自定义文件名 + 自选文件夹", a: "✅ 原生桥", i: "✅ 浏览器下载", w: "✅ 浏览器下载", u: "✅ 浏览器下载", n: "v3.60 默认 知识库_YYYYMMDD.md/.txt/.html，共享模块三应用同步" },
       { f: "GitHub 升级（检测新版，查本渠道 Release）", a: "✅", i: "✅", w: "✅", u: "✅", n: "设置→GitHub 升级 列出四平台安装包" },
       { f: "写备忘录 / 我的备忘录（运行维护）", a: "✅", i: "✅", w: "✅", u: "✅", n: "v3.51 新增，script error 已修复" },
       { f: "每页退出按钮 + 三击空白呼出主菜单", a: "✅", i: "✅", w: "✅", u: "✅", n: "全平台一致" }
@@ -10475,6 +10601,10 @@ function orgValOrDefault(b, k) {
 
     photos = photos || [];
 
+    // v3.61：剥奥维 doc.kml 串首 UTF-8 BOM（JSZip/原生读出后 (BOM) 仍在串首，直接喂 DOMParser 会报 XML 声明不在实体开头）及声明前空白
+    xml = String(xml == null ? "" : xml);
+    if (xml.charCodeAt(0) === 0xFEFF) xml = xml.slice(1);
+    xml = xml.replace(/^(\s+)(?=<\?xml)/i, "");
     var doc = new DOMParser().parseFromString(xml || "", "application/xml");
 
     if (doc.getElementsByTagName("parsererror").length) throw new Error("KML 格式无法解析（XML 语法错误）");
@@ -11185,6 +11315,8 @@ function orgValOrDefault(b, k) {
 
       }
 
+      // v3.61：与奥维原装一致写 <OvCoordType>CGCS2000</OvCoordType>，避免奥维按工程默认坐标系读取导致整体偏移
+      var coordType = geo ? "<OvCoordType>CGCS2000</OvCoordType>" : "";
       return "<Placemark><name>" + esc(b.name) + "</name><description>" + desc + "</description>" +
 
         (ext ? "<ExtendedData>" + ext + "</ExtendedData>" : "") +
@@ -11193,11 +11325,11 @@ function orgValOrDefault(b, k) {
 
         "<Style><IconStyle><Icon><href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href></Icon></IconStyle></Style>" +
 
-        geo + "</Placemark>";
+        coordType + geo + "</Placemark>";
 
     }
 
-    var folders = "";
+    var inner = "";
 
     Object.keys(root).forEach(function (o) {
 
@@ -11209,11 +11341,12 @@ function orgValOrDefault(b, k) {
 
       });
 
-      folders += "<Folder><name>" + esc(o) + "</name>" + sub + "</Folder>";
+      inner += "<Folder><name>" + esc(o) + "</name>" + sub + "</Folder>";
 
     });
 
-    var kml = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>' + APPNAME + "</name>" + folders + "</Document></kml>";
+    var folders = "<Folder><name>" + esc(APPNAME) + "</name>" + inner + "</Folder>";
+    var kml = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>' + esc(APPNAME) + "</name>" + folders + "</Document></kml>";
 
     return { kml: kml, photos: photos, count: src.length };
 

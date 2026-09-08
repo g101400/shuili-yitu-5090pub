@@ -793,7 +793,28 @@ public class LargeFileManager {
     private static long readLongState(File f) { try { return Long.parseLong(readFile(f).toString()); } catch (Exception e) { return 0; } }
     private static String escapeJson(String s) {
         if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "");
+        // 逐字符转义：在原有 \\ \" \n 基础上，补齐 \r(移除) 以及 TAB/\b/\f 与所有 <0x20 控制字符、
+        // U+2028/U+2029。奥维 doc.kml 排版含海量 TAB，原样留在 JSON 字符串里会让 JSON.parse 报
+        // "Bad control character in string literal"（即 APK 导入奥维原装文件提示"返回数据格式错误"的根因）。
+        StringBuilder sb = new StringBuilder(s.length() + 32);
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\': sb.append("\\\\"); break;
+                case '"': sb.append("\\\""); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': break; // 移除（沿用旧行为，避免 JSON 非法控制字符）
+                case '\t': sb.append("\\t"); break;
+                case '\b': sb.append("\\b"); break;
+                case '\f': sb.append("\\f"); break;
+                case '\u2028': sb.append("\\u2028"); break;
+                case '\u2029': sb.append("\\u2029"); break;
+                default:
+                    if (c < 0x20) sb.append(String.format("\\u%04x", (int) c));
+                    else sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
 }

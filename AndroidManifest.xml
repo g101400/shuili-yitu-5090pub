@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.shuili.yitu"
-    android:versionCode="57"
-    android:versionName="3.57">
+    android:versionCode="60"
+    android:versionName="3.60">
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
     <!-- 在线底图（天地图）需要联网；离线场景下不请求也不影响 -->
     <uses-permission android:name="android.permission.INTERNET" />
