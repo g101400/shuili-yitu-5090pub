@@ -3579,6 +3579,14 @@ function orgValOrDefault(b, k) {
 
     }
 
+    // v3.64：智能化内核（模糊检索 / 提示词生成 / AI记忆·Hermes / 存疑反向查询 / 强制联网）
+    if (window.KBCore && typeof KBCore.getMenuGroups === "function") {
+      KBCore.getMenuGroups().forEach(function (g) {
+        g.items.forEach(function (it) { if (!it.k) it.k = "m:" + it.t; });
+        groups.push(g);
+      });
+    }
+
     // 设置：组织与类型管理（v3.42 新增）+ 快捷常用设置 + 危险操作 + AI 设置项
 
     groups.push({ g: "设置", ico: "⚙️", items: [
@@ -9132,7 +9140,10 @@ function orgValOrDefault(b, k) {
       "修复（菜单 script error 根因）：补齐作用域内的收藏/隐藏统一 API（getFavMenus / setFavMenus），古建另补 menuTitleOf / toggleFavMenu，根治古建打开菜单报「getFavMenus is not defined」导致整个菜单不渲染（被 window.onerror 吞成「运行错误:script error」）；收藏/隐藏按钮继续保留二次确认，古建收藏数据与「快捷常用」共用同一份（gujian_favorites_v32）。",
       "修复（安卓 ovkmz 导入后显示不正常 / 不能放大）：导入过程中 busy 浮层与进度面板反复显隐，地图容器尺寸变化后 Leaflet 未收到 resize，手势缩放失效且瓦片错位；现导入落库后显式 map.invalidateSize()（并延迟 300ms 补一次），并自动 fitBounds 到本次导入要素范围（pad 0.2 / maxZoom 16），导入完成即可看到新数据，不再「导入了却看不到」。",
       "回归保持：隐藏/收藏子菜单二次确认、deb 端 🙈/★ 改内联 SVG 图标、deb 筛选后导出照片计数、安卓照片点击空白（大缩略图 + onerror 兜底）、管理所九所严格限定与统一识别、GitHub 自动升级（水利/感知 公开版与内部版均可用）与苹果 PWA 五仓库部署；四平台（Android / Win11 / 统信UOS / iOS PWA）同步。"
-    ]},
+    ,
+      "新增（知识库智能化内核 · 菜单「智能化内核」）：①智能模糊检索——标题/标签/来源 + 知识库片段混合排序，支持错字、简写、别名（相似度百分比展示，可一键就地提问）；②提示词生成器——6 套业务模板（巡检报告 / 维修方案 / 参数核对 / 汇报材料 / 隐患排查 / 培训要点），一键生成可直接投喂大模型的提示词，支持复制或「生成并提问」；③AI 记忆 · Hermes——对话记忆查看/清空 + 经验沉淀，沉淀条目自动被后续问答引用；④存疑反向查询——粘贴一段内容即可反查它出自哪些知识条目，并自动比对同项数值表述，列出「建议现场核实」的差异清单；⑤强制联网开关——开启后所有智能调用一律走在线大模型（本地知识库仅作上下文），断网时明确报错而不再静默降级，并提供在线连通性自检。",
+      "新增（内部版防泄密）：①内部 PWA 数据整体加密——data.js / kb_building_seed.js / ai_seed.js 用 AES-256-GCM（PBKDF2-SHA256 派生）加密为 secure/dat.enc.js，明文文件已下线（站点返回 404）；启动先弹口令门，口令正确才解密注入并加载应用（口令不在代码中明文存储，错则拒绝进入，通过一次本机记住）；②内部 PWA 部署到公开仓库 Pages，解决私有仓库不支持 Pages 导致内部版没有在线地址的问题；③内部版（偶数版本号）Android / Win11 / 统信UOS 同步加入启动口令门，公开版自动放行；④GitHub 升级内部渠道切至公开 Release 仓库，免登录即可检测与下载，安装包本身仍受启动口令保护。",
+      "回归保持：安卓 ovkmz 导入后自动 fitBounds + invalidateSize（不能放大/瓦片错位）、菜单收藏隐藏 API 补齐（getFavMenus 未定义根治）、隐藏/收藏二次确认、deb 内联 SVG 图标、管理所九所统一；四端功能对照单与版本变更同步至本版。"]},
 
 
     { v: "v3.60", d: "2026-09-07", items: [
@@ -9454,6 +9465,20 @@ function orgValOrDefault(b, k) {
   /* ---------- 四端功能对照单（跨平台同步差异，平台原生能力允许不同） ---------- */
 
   var PLATFORM_COMPARE = [
+
+    { v: "v3.64", d: "2026-09-08", note: "本版（内部版，与感知 v1.40 / 古建 v3.7.7 同步）：①新增「智能化内核」菜单组（智能模糊检索 / 提示词生成器 / AI 记忆·Hermes / 存疑反向查询 / 强制联网）；②内部版加启动口令（3305）并把内部 PWA 数据整体加密后部署到公开仓库，解决私有仓库 Pages 不可用的同时防泄密；③GitHub 升级内部渠道免登录；④安卓 ovkmz 导入自动定位修复；⑤菜单 script error 根治。", rows: [
+      { f: "智能化内核：智能模糊检索（错字 / 简写 / 别名）", a: "✅", i: "✅", w: "✅", u: "✅", n: "菜单「智能化内核 → 🔎 智能模糊检索」：标题/标签/来源 + 知识库片段混合排序，带相似度百分比" },
+      { f: "智能化内核：提示词生成器（6 套模板）", a: "✅", i: "✅", w: "✅", u: "✅", n: "巡检报告 / 维修方案 / 参数核对 / 汇报材料 / 隐患排查 / 培训要点，可复制或直接投喂模型提问" },
+      { f: "智能化内核：AI 记忆 · Hermes 沉淀", a: "✅", i: "✅", w: "✅", u: "✅", n: "对话记忆查看与清空、经验手动沉淀，沉淀条目自动被后续问答引用" },
+      { f: "智能化内核：存疑反向查询（来源 + 数值冲突）", a: "✅", i: "✅", w: "✅", u: "✅", n: "粘贴内容反查出处，自动比对同项数值差异并给出待现场核实清单；可一键联网核实" },
+      { f: "智能化内核：强制联网开关", a: "✅", i: "✅", w: "✅", u: "✅", n: "开启后所有智能调用强制走在线模型，本地仅作上下文；断网明确报错，不再静默降级；含在线连通性自检" },
+      { f: "内部版启动口令门（3305）", a: "✅", i: "✅", w: "✅", u: "✅", n: "仅内部版（偶数版本号）启用；口令不在代码中明文存储（PBKDF2+AES-GCM 校验），通过一次本机记住" },
+      { f: "内部版 PWA 数据加密（AES-256-GCM + PBKDF2）", a: "—", i: "✅", w: "—", u: "—", n: "内部 PWA 部署于公开仓库 Pages，data/知识库/AI 种子整体加密，启动需口令；明文 data.js 已下线（404）" },
+      { f: "GitHub 升级（内部版免登录直接检测与下载）", a: "✅", i: "✅", w: "✅", u: "✅", n: "内部渠道 Release 切至公开仓库，免登录；安装包本身仍受启动口令保护" },
+      { f: "安卓 ovkmz 导入后自动定位（fitBounds + invalidateSize）", a: "✅", i: "✅", w: "✅", u: "✅", n: "根治安卓导入后不能放大 / 瓦片错位；导入完成即定位到新要素范围" },
+      { f: "菜单收藏 / 隐藏 API 补齐（getFavMenus 等）", a: "✅", i: "✅", w: "✅", u: "✅", n: "根治打开菜单报 getFavMenus is not defined 导致菜单整体空白" }
+    ]},
+
 
     { v: "v3.59", d: "2026-09-07", note: "本版（公开测试版，与感知 v1.35 / 古建 v3.7.5 同步）：①知识库管理导出 md/txt/html 自定义文件名 + 自选文件夹（默认 知识库_YYYYMMDD.fmt）③信息与帮助（功能介绍 / 版本变更 / 四端功能对照单）更新至 v3.60。", rows: [
       { f: "知识库导出 md/txt/html 自定义文件名 + 自选文件夹", a: "✅ 原生桥", i: "✅ 浏览器下载", w: "✅ 浏览器下载", u: "✅ 浏览器下载", n: "v3.60 默认 知识库_YYYYMMDD.md/.txt/.html，共享模块三应用同步" },
@@ -13628,8 +13653,8 @@ window.upOpenUrl = upOpenUrl;
 /* ===== GitHub 升级（5090 仓库发布渠道）=====
  * 三应用通用：设置菜单「GitHub 升级（检测新版）」→ 查 GitHub Releases 最新版。
  * 水利奇偶双通道：公开版(奇数)→shuili-yitu-5090pub；内部版(偶数)→shuili-yitu5090。 */
-var upGithubCfg = { public: "g101400/shuili-yitu-5090pub", internal: "g101400/shuili-yitu5090" }
-var upPwaCfg = { public: "https://g101400.github.io/shuili-yitu-5090pub/", internal: "https://g101400.github.io/shuili-yitu5090/" };;
+var upGithubCfg = { public: "g101400/shuili-yitu-5090pub", internal: "g101400/shuili-yitu5090-sec" }
+var upPwaCfg = { public: "https://g101400.github.io/shuili-yitu-5090pub/", internal: "https://g101400.github.io/shuili-yitu5090-sec/" };;
 function ghChannel() {
   if (typeof getReleaseChannel === "function") { try { return getReleaseChannel(); } catch (e) {} }
   return "single";
@@ -13665,7 +13690,7 @@ function ghOpenUpgrade() {
   var ch = ghChannel();
   var html =
     '<div class="up-info">当前：<b>' + esc((typeof upCfg !== "undefined" && upCfg.appName) ? upCfg.appName : "") + "</b> · 版本 <b>" + esc((typeof APP_VERSION !== "undefined") ? APP_VERSION : "?") + "</b> · 渠道 <b>" + esc(ch === "public" ? "公开版" : (ch === "internal" ? "内部版" : "不分内外")) + "</b><br>GitHub 仓库：<b>" + esc(repo || "未配置") + "</b></div>" +
-    '<div style="font-size:13px;color:#555;margin:6px 0">从 GitHub Releases 检测该渠道最新版并下载四平台安装包（公开版免登录；内部版仓库私有，需 GitHub 账号且有该仓库权限）。</div>' +
+    '<div style="font-size:13px;color:#555;margin:6px 0">从 GitHub Releases 检测该渠道最新版并下载四平台安装包（免登录直接检测与下载；内部版由启动口令保护，口令由管理员下发）。</div>' +
     '<div class="up-btns">' +
       '<button class="btn-save" onclick="ghCheck()">🔍 检测 GitHub 新版</button>' +
       '<button class="btn-save" onclick="ghOpenPwa()">🍎 iOS 在线地址</button>' +
