@@ -161,9 +161,9 @@
 
   var APPNAME = "水利工程基础信息一张图";
 
-  var APP_VERSION = "v3.63";
+  var APP_VERSION = "3.64";
 
-  var APP_BUILD_DATE = "2026-09-07";
+  var APP_BUILD_DATE = "2026-09-08";
 
   // —— 双通道发版（防泄密）：版本末位奇偶决定发布通道 ——
   // 偶数(如 v3.50) = 内部版，保留单位内部数据；奇数(如 v3.49) = 公开/测试版，不含内部数据。
@@ -10665,6 +10665,31 @@ function orgValOrDefault(b, k) {
       } catch (e) {}
 
       save(); render(); buildLegend();
+
+      // v3.63 导入后自动定位（安卓 WebView 导入后「显示不正常 / 不能放大」根因修复）
+
+      try {
+
+        if (typeof map !== "undefined" && map && map.invalidateSize) { try { map.invalidateSize(); } catch (e) {} }
+
+        var __pts = (list || []).filter(function (nb) {
+
+          return nb && isFinite(nb.lat) && isFinite(nb.lon) && (Math.abs(nb.lat) > 1e-6 || Math.abs(nb.lon) > 1e-6);
+
+        });
+
+        if (__pts.length && typeof map !== "undefined" && map && map.fitBounds && typeof L !== "undefined") {
+
+          var __b = L.latLngBounds(__pts.map(function (p) { return [p.lat, p.lon]; }));
+
+          try { map.fitBounds(__b.pad(0.2), { maxZoom: 16, animate: false }); } catch (e) {}
+
+          setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 300);
+
+        }
+
+      } catch (e) {}
+
 
       idle();
 
