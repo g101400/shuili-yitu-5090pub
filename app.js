@@ -9128,6 +9128,13 @@ function orgValOrDefault(b, k) {
 
   var CHANGES = [
 
+    { v: "v3.64", d: "2026-09-08", items: [
+      "修复（菜单 script error 根因）：补齐作用域内的收藏/隐藏统一 API（getFavMenus / setFavMenus），古建另补 menuTitleOf / toggleFavMenu，根治古建打开菜单报「getFavMenus is not defined」导致整个菜单不渲染（被 window.onerror 吞成「运行错误:script error」）；收藏/隐藏按钮继续保留二次确认，古建收藏数据与「快捷常用」共用同一份（gujian_favorites_v32）。",
+      "修复（安卓 ovkmz 导入后显示不正常 / 不能放大）：导入过程中 busy 浮层与进度面板反复显隐，地图容器尺寸变化后 Leaflet 未收到 resize，手势缩放失效且瓦片错位；现导入落库后显式 map.invalidateSize()（并延迟 300ms 补一次），并自动 fitBounds 到本次导入要素范围（pad 0.2 / maxZoom 16），导入完成即可看到新数据，不再「导入了却看不到」。",
+      "回归保持：隐藏/收藏子菜单二次确认、deb 端 🙈/★ 改内联 SVG 图标、deb 筛选后导出照片计数、安卓照片点击空白（大缩略图 + onerror 兜底）、管理所九所严格限定与统一识别、GitHub 自动升级（水利/感知 公开版与内部版均可用）与苹果 PWA 五仓库部署；四平台（Android / Win11 / 统信UOS / iOS PWA）同步。"
+    ]},
+
+
     { v: "v3.60", d: "2026-09-07", items: [
       "公开测试版（与感知 v1.35 / 古建 v3.7.5 同步）：①知识库管理导出 md/txt/html 支持自定义文件名（默认 知识库_YYYYMMDD.md/.txt/.html）+ 自选保存文件夹（Android 原生目录选择落 Download/指定目录；Win/UOS/iOS 回退系统下载目录并提示），共享模块 kbExport 三应用同步，改一处即三端生效；②内置真实业务数据（内部渠道）；③信息与帮助（功能介绍 / 版本变更 / 四端功能对照单）更新至 v3.60；④其余导出（建筑物表格 / 照片 / ovkmz / ovobj / obj / 升级备份）自定义文件夹与文件名逐一核查保持 + 各子菜单防「运行错误:script error」冒烟回归。"
     ]},
