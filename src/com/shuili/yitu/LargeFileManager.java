@@ -237,7 +237,78 @@ public class LargeFileManager {
         try { File f = new File(absPath); return f.exists() ? f.length() : -1; } catch (Exception e) { return -1; }
     }
     // 相对路径（photos/...）→ 绝对路径（JS 需要 absPath 才能调 compressPhoto）
+    /** v3.62 容错解析：历史包曾生成 "photos/import_import_<ts>/pic_0.jpg" 双前缀路径，
+        以及部分调用方直接传 "import_xxx/pic.jpg"。这里逐级回退，保证老数据也能读到。 */
+    private File resolvePhotoFile(String relPath) {
+        if (relPath == null || relPath.isEmpty()) return null;
+        File base = rootPhotos.getParentFile();
+        try {
+            File a = new File(base, relPath);
+            if (a.exists() && a.isFile()) return a;
+            String p = relPath.replace('\\', '/');
+            if (p.startsWith("photos/")) {
+                File b = new File(rootPhotos, p.substring("photos/".length()));
+                if (b.exists() && b.isFile()) return b;
+            } else {
+                File b = new File(rootPhotos, p);
+                if (b.exists() && b.isFile()) return b;
+            }
+            // 双前缀修复：photos/import_import_xxx/... -> photos/import_xxx/...
+            String fixed = p.replace("import_import_", "import_");
+            if (!fixed.equals(p)) {
+                File c = new File(base, fixed);
+                if (c.exists() && c.isFile()) return c;
+                File d = new File(rootPhotos, fixed.startsWith("photos/") ? fixed.substring(7) : fixed);
+                if (d.exists() && d.isFile()) return d;
+            }
+            // 最后按文件名在 photos 下递归找一次（最多 3 层、命中即返回）
+            String name = p.substring(p.lastIndexOf('/') + 1);
+            if (!name.isEmpty()) {
+                File hit = findByName(rootPhotos, name, 0);
+                if (hit != null) return hit;
+            }
+        } catch (Exception ignore) {}
+        return null;
+    }
+    private static File findByName(File dir, String name, int depth) {
+        if (dir == null || !dir.isDirectory() || depth > 3) return null;
+        File[] fs = dir.listFiles();
+        if (fs == null) return null;
+        for (File f : fs) {
+            if (f.isDirectory()) {
+                if (f.getName().equals(".thumbs")) continue;
+                File hit = findByName(f, name, depth + 1);
+                if (hit != null) return hit;
+            } else if (f.getName().equals(name) && f.length() > 0) {
+                return f;
+            }
+        }
+        return null;
+    }
+    private File resolvePhotoFileOrNull(String relPath) { return resolvePhotoFile(relPath); }
+    /** v3.62：灯箱全图专用——在磁盘生成大缩略图后只回传 file:// 路径。
+        避免 ensureThumb 把整张 base64（可达数 MB）跨 WebView 桥回传导致返回空串、灯箱全白。 */
+    public String bigPhotoUrl(String relPath, int size) {
+        try {
+            File orig = resolvePhotoFile(relPath);
+            if (orig == null) orig = new File(rootPhotos.getParentFile(), relPath);
+            if (!orig.exists() || orig.length() == 0) return "";
+            if (size <= 0) size = 1600;
+            File thumbDir = new File(orig.getParentFile(), ".thumbs" + File.separator + size);
+            File thumb = new File(thumbDir, stripExt(orig.getName()) + ".jpg");
+            if (!thumb.exists() || thumb.length() == 0) {
+                thumbDir.mkdirs();
+                String data = thumbOf(orig, size);
+                String b64 = data.indexOf(",") >= 0 ? data.substring(data.indexOf(",") + 1) : "";
+                if (b64.isEmpty()) return "";
+                writeFile(thumb, android.util.Base64.decode(b64, android.util.Base64.DEFAULT));
+            }
+            return "file://" + thumb.getAbsolutePath();
+        } catch (Exception e) { return ""; }
+    }
     public String photoAbsPath(String relPath) {
+        File f0 = resolvePhotoFile(relPath);
+        if (f0 != null) return f0.getAbsolutePath();
         try { return new File(rootPhotos.getParentFile(), relPath).getAbsolutePath(); } catch (Exception e) { return ""; }
     }
     // 压缩照片到 targetKB 以内（JPEG），异步并发，覆盖原文件；完成回调 window.onCompressPhoto(absPath, json)
@@ -308,7 +379,8 @@ public class LargeFileManager {
     // 持久化缩略图：photos/<dir>/.thumbs/<size>/<name>.jpg；缓存命中直接读，否则生成后落盘（一次生成永久复用）
     public String ensureThumb(String relPath, int size) {
         try {
-            File orig = new File(rootPhotos.getParentFile(), relPath);
+            File orig = resolvePhotoFile(relPath);
+            if (orig == null) orig = new File(rootPhotos.getParentFile(), relPath);
             if (!orig.exists() || orig.length() == 0) return "";
             if (size <= 0) size = 320;
             File thumbDir = new File(orig.getParentFile(), ".thumbs" + File.separator + size);
@@ -423,7 +495,7 @@ public class LargeFileManager {
                                 File out = new File(extract, discName);
                                 pipeToFile(zis, out);
                                 String ovName = n.substring(n.lastIndexOf('/') + 1);
-                                photoList.add(new String[]{ ovName, "photos/import_" + extract.getName() + "/" + discName });
+                                photoList.add(new String[]{ ovName, "photos/" + extract.getName() + "/" + discName });
                                 picIdx++;
                             }
                             zis.closeEntry();
@@ -802,6 +874,7 @@ public class LargeFileManager {
             switch (c) {
                 case '\\': sb.append("\\\\"); break;
                 case '"': sb.append("\\\""); break;
+                case '\'': sb.append("\\'"); break;
                 case '\n': sb.append("\\n"); break;
                 case '\r': break; // 移除（沿用旧行为，避免 JSON 非法控制字符）
                 case '\t': sb.append("\\t"); break;

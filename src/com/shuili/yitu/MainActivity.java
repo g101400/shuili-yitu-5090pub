@@ -445,6 +445,17 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public String ensureThumb(String relPath, int size) { return lfm.ensureThumb(relPath, size); }
         @JavascriptInterface
+        public String bigPhotoUrl(String relPath, int size) {
+            try { return lfm.bigPhotoUrl(relPath, size); } catch (Exception e) { return ""; }
+        }
+        @JavascriptInterface
+        public String linkPhotoToBuilding(String buildingId, String srcRel, String name) {
+            // v3.62：ovkmz 导入的照片临时落在 photos/import_<ts>/ 下，与原生添加照片的
+            // photos/<buildingId>/ 规范不一致（APK 端出现过照片不显示）。这里把导入照片
+            // 归位到建筑物目录，返回新的相对路径；失败返回空串由 JS 保留原路径并计数上报。
+            try { String abs = lfm.photoAbsPath(srcRel); if (abs == null || abs.isEmpty()) return ""; return lfm.linkPhoto(buildingId, abs, name); } catch (Exception e) { return ""; }
+        }
+        @JavascriptInterface
         public String exportPath(String name) {
             File f = new File(android.os.Environment.getExternalStoragePublicDirectory(
                 android.os.Environment.DIRECTORY_DOWNLOADS), "水利工程一张图");

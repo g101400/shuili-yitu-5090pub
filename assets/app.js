@@ -1,3 +1,16 @@
+/* ===== v3.62 防「运行错误:script error」全局兜底（勿删）=====
+   历史版本/动态注入模块可能裸引用收藏与隐藏菜单的读写函数，一旦某个分支未定义，
+   ReferenceError 会被 window.onerror 捕获成「运行错误:script error」并中断菜单渲染。
+   这里统一补齐为基于 localStorage 的安全实现，缺失时静默降级。 */
+(function () {
+  function _read(key) { try { var v = JSON.parse(localStorage.getItem(key) || "[]"); return v && v.length !== undefined ? v : []; } catch (e) { return []; } }
+  function _write(key, v) { try { localStorage.setItem(key, JSON.stringify(v || [])); } catch (e) {} }
+  if (typeof window.getFavMenus !== "function") window.getFavMenus = function () { return _read("favMenus"); };
+  if (typeof window.setFavMenus !== "function") window.setFavMenus = function (v) { _write("favMenus", v); };
+  if (typeof window.getHiddenMenus !== "function") window.getHiddenMenus = function () { return _read("hiddenMenus"); };
+  if (typeof window.setHiddenMenus !== "function") window.setHiddenMenus = function (v) { _write("hiddenMenus", v); };
+})();
+
 /* 水利工程基础信息一张图 — 离线 WebView 应用逻辑 */
 
 (function () {
@@ -148,9 +161,9 @@
 
   var APPNAME = "水利工程基础信息一张图";
 
-  var APP_VERSION = "v3.60";
+  var APP_VERSION = "3.64";
 
-  var APP_BUILD_DATE = "2026-09-07";
+  var APP_BUILD_DATE = "2026-09-08";
 
   // —— 双通道发版（防泄密）：版本末位奇偶决定发布通道 ——
   // 偶数(如 v3.50) = 内部版，保留单位内部数据；奇数(如 v3.49) = 公开/测试版，不含内部数据。
@@ -460,25 +473,56 @@
 
    */
 
+  // v3.63：管理所智能识别 —— 别名/全称/带“怀柔”前缀/“管理”二字一律归一到九所规范名
+
+  var OFFICE_ALIAS = [
+
+    [/^潮河(总干渠)?(管理所)?$/, "潮河所"],
+
+    [/^怀柔?水库(管理所)?$|^水库(管理所)?$/, "水库所"],
+
+    [/^(怀柔)?地下水源(工程)?(管理所)?$/, "地下水源所"],
+
+    [/^(李家)?史山(管理所)?$/, "史山所"],
+
+    [/^温泉(管理所)?$/, "温泉所"],
+
+    [/^龙山(管理所)?$/, "龙山所"],
+
+    [/^埝头(管理所)?$/, "埝头所"],
+
+    [/^北台上(管理所)?$/, "北台上所"],
+
+    [/^西田各庄(管理所)?$/, "西田各庄所"]
+
+  ];
+
   function normOffice(s) {
 
-    s = String(s == null ? "" : s).trim();
+    var s0 = String(s == null ? "" : s).trim();
 
-    if (!s) return "";
+    if (!s0) return "";
 
-    // 潮河特殊：潮河管理所 / 潮河总干渠 / 潮河总干渠管理所 → 潮河所
+    // 先去“管理”二字再匹配别名，保证「史山管理所」与「史山所」同归一
 
-    if (/^潮河(总干渠)?(管理所)?$/.test(s)) return "潮河所";
+    var s1 = s0.replace(/管理所$/, "所").replace(/管理处$/, "").replace(/管理$/, "");
 
-    // 怀柔水库所 → 水库所（怀柔的水库管理所）
+    var cands = [s0, s1, s1.replace(/所$/, ""), s0.replace(/管理/g, "")];
 
-    if (/^怀柔水库所?$/.test(s)) return "水库所";
+    for (var i = 0; i < cands.length; i++) {
 
-    // 通用：xxx管理所 → xxx所（去“管理”二字）
+      for (var j = 0; j < OFFICE_ALIAS.length; j++) {
 
-    return s.replace(/管理所$/, "所");
+        if (OFFICE_ALIAS[j][0].test(cands[i])) return OFFICE_ALIAS[j][1];
+
+      }
+
+    }
+
+    return s1;
 
   }
+
 
   // 管理所完整选项：权威清单 + 数据实际出现的管理所，保证筛选/导出“管理所”选项不遗漏（需求⑤）
 
@@ -634,7 +678,21 @@
 
     if (k === "zhan") getCustomStations().forEach(function (v) { if (v) set[v] = 1; });
 
-    if (k === "suo") BUILDINGS.forEach(function (b) { var o = normOffice(b.office); if (o) set[o] = 1; });
+    // v3.63：所级选项严格限于九所规范名（需求：有管理所的选项包括且仅限于九所）；非规范名（如后勤服务中心）不进入所级下拉，但建筑数据本身保持不变。
+    if (k === "suo") BUILDINGS.forEach(function (b) {
+
+      var o = normOffice(b.office);
+
+      if (o && CANONICAL_OFFICES.indexOf(o) >= 0) set[o] = 1;
+
+    });
+
+    if (k === "suo") Object.keys(set).forEach(function (o) {
+
+      if (CANONICAL_OFFICES.indexOf(o) < 0 && getCustomOffices().indexOf(o) < 0) delete set[o];
+
+    });
+
 
     if (k === "zhan") BUILDINGS.forEach(function (b) { if (b.station) set[b.station] = 1; });
 
@@ -1095,10 +1153,40 @@ function orgValOrDefault(b, k) {
   // 全分辨率（仅灯箱/保存时使用，一次一张，避免内存暴涨）
 
   function photoFullSrc(p) {
+    // v3.62：优先走磁盘大缩略图的 file:// 路径（只回传几十字节，绝不会跨桥失败）
+
+    if (p.file && window.Android && typeof window.Android.bigPhotoUrl === "function") {
+
+      try { var u1 = window.Android.bigPhotoUrl(p.file, 1600); if (u1 && u1.length > 8) return u1; } catch (e) {}
+
+    }
+
+
+    // v3.63：安卓端 readPhoto 会把整张原图 base64 回传（1.5M 照片≈2M 字符串），超过 WebView
+
+    // JS<->Java 桥的 Binder 传输上限会返回空串 → 灯箱一片空白。改为取「大缩略图」（最长边 1600）。
+
+    if (p.file && window.Android && typeof window.Android.ensureThumb === "function") {
+
+      try { var t1 = window.Android.ensureThumb(p.file, 1600); if (t1 && t1.length > 64) return t1; } catch (e) {}
+
+    }
+
+    if (p.file && window.Android && typeof window.Android.ensureThumb === "function") {
+
+      try { var t2 = window.Android.ensureThumb(p.file, 1024); if (t2 && t2.length > 64) return t2; } catch (e) {}
+
+    }
+
+    if (p.file && window.Android && typeof window.Android.thumbPhoto === "function") {
+
+      try { var t3 = window.Android.thumbPhoto(p.file, 1024); if (t3 && t3.length > 64) return t3; } catch (e) {}
+
+    }
 
     if (p.file) {
 
-      try { if (window.Android && typeof window.Android.readPhoto === "function") return window.Android.readPhoto(p.file); } catch (e) {}
+      try { if (window.Android && typeof window.Android.readPhoto === "function") { var r = window.Android.readPhoto(p.file); if (r && r.length > 64) return r; } } catch (e) {}
 
       try { return new URL(p.file, location.href).href; } catch (e) { return p.file; }
 
@@ -1107,6 +1195,7 @@ function orgValOrDefault(b, k) {
     return p.data || "";
 
   }
+
 
 
 
@@ -3255,6 +3344,16 @@ function orgValOrDefault(b, k) {
 
   // v3.42：快捷常用——每个子菜单可收藏（☆），收藏项集中到「快捷常用」组；原子菜单保留
 
+  // v3.62：菜单 key → 标题（供隐藏/收藏二次确认显示菜单名）
+
+  function menuTitleOf(k) {
+
+    try { if (window.__menuTitle && window.__menuTitle[k]) return window.__menuTitle[k]; } catch (e) {}
+
+    return String(k || "");
+
+  }
+
   function getFavMenus() { try { return JSON.parse(localStorage.getItem("favMenus") || "[]"); } catch (e) { return []; } }
 
   function setFavMenus(a) { try { localStorage.setItem("favMenus", JSON.stringify(a)); } catch (e) {} }
@@ -3289,11 +3388,23 @@ function orgValOrDefault(b, k) {
 
     if (PROTECTED_HIDDEN.indexOf(k) >= 0) { toast("该菜单为管理入口，不可隐藏"); return; }
 
-    setMenuHidden(k, true);
+    var title = menuTitleOf(k);
 
-    if (buildMenu) buildMenu();
+    ask("隐藏子菜单", "确定隐藏子菜单「<b>" + esc(title) + "</b>」吗？<br><br>隐藏后该菜单不再显示，可到 设置 → 已隐藏子菜单 恢复。",
 
-    toast("已隐藏该菜单（可在 设置→已隐藏子菜单 恢复显示）");
+      [{ t: "确定隐藏", cls: "btn-confirm2", v: 1 }, { t: "取消", cls: "btn-cancel", v: 0 }],
+
+      function (ok) {
+
+        if (!ok) return;
+
+        setMenuHidden(k, true);
+
+        try { if (buildMenu) buildMenu(); } catch (e) {}
+
+        toast("已隐藏「" + title + "」（设置→已隐藏子菜单 可恢复）");
+
+      });
 
   }
 
@@ -3301,7 +3412,7 @@ function orgValOrDefault(b, k) {
 
     setMenuHidden(k, false);
 
-    if (buildMenu) buildMenu();
+    try { if (buildMenu) buildMenu(); } catch (e) {}
 
   }
 
@@ -3320,19 +3431,41 @@ function orgValOrDefault(b, k) {
   }
 
 
-  function toggleFavMenu(k) {
+  function toggleFavMenu(k, done) {
 
-    var f = getFavMenus();
+    var f0 = getFavMenus();
 
-    var i = f.indexOf(k);
+    var on = f0.indexOf(k) >= 0;
 
-    if (i >= 0) f.splice(i, 1); else f.push(k);
+    var title = menuTitleOf(k);
 
-    setFavMenus(f);
+    // v3.62：防误点——收藏/取消收藏均需二次确认
 
-    buildMenu();
+    ask(on ? "取消收藏" : "收藏子菜单",
 
-    toast(i >= 0 ? "已从快捷常用移除" : "已添加到快捷常用");
+      on ? ("确定把「<b>" + esc(title) + "</b>」从快捷常用移除吗？") : ("确定把「<b>" + esc(title) + "</b>」添加到快捷常用吗？"),
+
+      [{ t: on ? "确定移除" : "确定添加", cls: "btn-confirm2", v: 1 }, { t: "取消", cls: "btn-cancel", v: 0 }],
+
+      function (ok) {
+
+        if (!ok) { if (done) done(on); return; }
+
+        var f = getFavMenus();
+
+        var i = f.indexOf(k);
+
+        if (i >= 0) f.splice(i, 1); else f.push(k);
+
+        setFavMenus(f);
+
+        try { if (buildMenu) buildMenu(); } catch (e) {}
+
+        toast(i >= 0 ? "已从快捷常用移除" : "已添加到快捷常用");
+
+        if (done) done(i < 0);
+
+      });
 
   }
 
@@ -3446,6 +3579,14 @@ function orgValOrDefault(b, k) {
 
     }
 
+    // v3.64：智能化内核（模糊检索 / 提示词生成 / AI记忆·Hermes / 存疑反向查询 / 强制联网）
+    if (window.KBCore && typeof KBCore.getMenuGroups === "function") {
+      KBCore.getMenuGroups().forEach(function (g) {
+        g.items.forEach(function (it) { if (!it.k) it.k = "m:" + it.t; });
+        groups.push(g);
+      });
+    }
+
     // 设置：组织与类型管理（v3.42 新增）+ 快捷常用设置 + 危险操作 + AI 设置项
 
     groups.push({ g: "设置", ico: "⚙️", items: [
@@ -3456,6 +3597,8 @@ function orgValOrDefault(b, k) {
       { k: "hideSet", ico: "🙈", t: "恢复隐藏的子菜单（全部）", f: function () { closeSheet("sheetMenu"); restoreAllHiddenMenus(); } },
 
       { k: "hideList", ico: "🗂️", t: "已隐藏子菜单列表（点击恢复）", f: function () { closeSheet("sheetMenu"); openHiddenMenuList(); } },
+      { k: "officeUnify", ico: "🏢", t: "管理所统一确认（智能识别）", f: function () { closeSheet("sheetMenu"); openOfficeUnify(); } },
+
 
 
       // v3.45：修改/添加天地图密钥（防服务器封禁/过期，用户自换密钥）
@@ -3538,15 +3681,15 @@ function orgValOrDefault(b, k) {
 
       grp.items.forEach(function (it, ii) {
 
+        try { window.__menuTitle = window.__menuTitle || {}; window.__menuTitle[it.k] = it.t; } catch (e) {}
         var starred = getFavMenus().indexOf(it.k) >= 0;
 
         var canHide = PROTECTED_HIDDEN.indexOf(it.k) < 0;
         html += '<div class="menu-item sub" data-gi="' + gi + '" data-ii="' + ii + '"><span class="menu-ico">' + it.ico + '</span><span>' + esc(it.t) + '</span>' +
 
-          (canHide ? '<span class="menu-hide" data-k="' + esc(it.k) + '" title="隐藏该菜单（可在 设置→已隐藏子菜单 恢复）" style="float:right;margin-left:6px;padding:0 4px;font-size:13px;cursor:pointer;color:#b9c0c7">🙈</span>' : "") +
+          (canHide ? '<span class="menu-hide" data-k="' + esc(it.k) + '" title="隐藏该菜单（可在 设置→已隐藏子菜单 恢复）" style="float:right;margin-left:6px;padding:2px 4px;cursor:pointer;color:#8a939b;line-height:0;display:inline-flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></span>' : "") +
 
-
-          '<span class="menu-fav" data-k="' + esc(it.k) + '" title="添加/移除快捷常用" style="float:right;margin-left:8px;padding:0 6px;color:' + (starred ? "#f0a020" : "#c8cdd2") + ';font-size:15px;cursor:pointer">' + (starred ? "★" : "☆") + "</span></div>";
+          '<span class="menu-fav" data-k="' + esc(it.k) + '" title="添加/移除快捷常用" style="float:right;margin-left:8px;padding:2px 4px;cursor:pointer;line-height:0;display:inline-flex;align-items:center;color:' + (starred ? "#f0a020" : "#c8cdd2") + '"><svg width="17" height="17" viewBox="0 0 24 24" fill="' + (starred ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l2.9 5.88 6.49.94-4.7 4.58 1.11 6.46L12 17.23l-5.8 3.13 1.11-6.46-4.7-4.58 6.49-.94z"/></svg></span>' + "</div>";
 
       });
 
@@ -3592,20 +3735,22 @@ function orgValOrDefault(b, k) {
 
         ev.stopPropagation(); ev.preventDefault();
 
-        toggleFavMenu(el.dataset.k);
+        toggleFavMenu(el.dataset.k, function (starred) {
 
-        // 视觉反馈：刚切换的星即时变成 ★ / ☆
+          // v3.62：图标为内联 SVG，不能再用 textContent 覆盖；只改颜色与填充
 
-        var starred = getFavMenus().indexOf(el.dataset.k) >= 0;
+          el.style.color = starred ? "#f0a020" : "#c8cdd2";
 
-        el.textContent = starred ? "★" : "☆";
+          var sv = el.querySelector("svg");
 
-        el.style.color = starred ? "#f0a020" : "#c8cdd2";
+          if (sv) sv.setAttribute("fill", starred ? "currentColor" : "none");
+
+        });
 
       };
 
     });
-    // v3.61：🙈 隐藏子菜单开关（阻止冒泡，不触发菜单动作）
+    // v3.61：隐藏子菜单开关（阻止冒泡，不触发菜单动作）
 
     $("menuBody").querySelectorAll(".menu-hide").forEach(function (el) {
 
@@ -3643,6 +3788,21 @@ function orgValOrDefault(b, k) {
     });
 
   }
+
+  // v3.62：buildMenu 兜底包装——内部任何异常只提示，不再让整个菜单崩掉
+  try {
+    var __rawBuildMenu = buildMenu;
+    buildMenu = function () {
+      try { return __rawBuildMenu.apply(null, arguments); }
+      catch (e) {
+        try { console.error("buildMenu failed:", e); } catch (_) {}
+        try { if (typeof toast === "function") toast("菜单渲染异常已跳过：" + ((e && e.message) || e)); } catch (_) {}
+        return "";
+      }
+    };
+    if (typeof window.buildMenu === "function") window.buildMenu = buildMenu;
+  } catch (e) {}
+
 
 
 
@@ -4060,6 +4220,110 @@ function orgValOrDefault(b, k) {
 
   /* ---------- v3.42：设置 → 快捷常用设置（勾选常用子菜单） ---------- */
 
+  /* ---------- v3.63：管理所智能识别与统一确认 ----------
+
+     规则：①导入/导出一律去掉“管理”二字（温泉管理所→温泉所、埝头管理所→埝头所）；
+
+           ②潮河管理所 / 潮河总干渠管理所 → 潮河所；③查询筛选忽略“管理”二字（史山所=史山管理所）；
+
+           ④站不是所，管理站是管理所的下一级，不参与合并。
+
+  */
+
+  function openOfficeUnify() {
+
+    var raw = {}, order = [];
+
+    BUILDINGS.forEach(function (b) {
+
+      var o = String(b.office || "").trim() || "（未设置）";
+
+      if (raw[o] === undefined) { raw[o] = 0; order.push(o); }
+
+      raw[o]++;
+
+    });
+
+    var html = '<p style="font-size:13px;color:#555;margin:0 0 10px">系统已按规则智能识别管理所（去掉“管理”二字、潮河总干渠→潮河所、怀柔水库→水库所、李家史山→史山所…）。下表可逐项确认或改选，确认后全库统一；查询与筛选同样忽略“管理”二字。</p>';
+
+    html += '<div style="max-height:52vh;overflow:auto">';
+
+    order.forEach(function (o) {
+
+      var target = normOffice(o === "（未设置）" ? "" : o) || "（未设置）";
+
+      var opts = CANONICAL_OFFICES.slice();
+
+      if (opts.indexOf(target) < 0) opts.push(target);
+
+      if (opts.indexOf("（未设置）") < 0) opts.push("（未设置）");
+
+      html += '<div style="display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;margin-bottom:6px">' +
+
+        '<span style="flex:1;font-size:13px">' + esc(o) + ' <span style="color:#888">(' + raw[o] + ' 条)</span></span>' +
+
+        '<span style="color:#888">→</span>' +
+
+        '<select class="f" style="margin:0;width:46%" data-raw="' + esc(o) + '">' +
+
+        opts.map(function (x) { return '<option value="' + esc(x) + '"' + (x === target ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') +
+
+        '</select></div>';
+
+    });
+
+    html += '</div><div class="form-actions">' +
+
+      '<button class="btn-cancel" onclick="closeSheet(\'sheetGen\')">取消</button>' +
+
+      '<button class="btn-save" onclick="applyOfficeUnify()">确认并统一</button></div>';
+
+    $("genTitle").textContent = "管理所统一确认";
+
+    $("genBody").innerHTML = html;
+
+    openSheet("sheetGen");
+
+  }
+
+  window.applyOfficeUnify = function () {
+
+    var body = $("genBody");
+
+    var map = {};
+
+    (body ? body.querySelectorAll("select[data-raw]") : []).forEach(function (s) { map[s.getAttribute("data-raw")] = s.value; });
+
+    var n = 0;
+
+    BUILDINGS.forEach(function (b) {
+
+      var o = String(b.office || "").trim() || "（未设置）";
+
+      var t = map[o];
+
+      if (t === undefined || t === o) return;
+
+      b.office = (t === "（未设置）" ? "" : t);
+
+      n++;
+
+    });
+
+    if (!n) { toast("没有需要变更的管理所"); return; }
+
+    save(); render();
+
+    try { buildLegend(); } catch (e) {}
+
+    try { buildMenu(); } catch (e) {}
+
+    closeSheet("sheetGen");
+
+    toast("已统一 " + n + " 条记录的管理所名称");
+
+  };
+
   function openFavSettings() {
 
     // 与 buildMenu 相同的分组结构（只读复用：重建一份 key 清单）
@@ -4196,6 +4460,8 @@ function orgValOrDefault(b, k) {
     add("设置", "🙈", "hideSet", "恢复隐藏的子菜单（全部）");
 
     add("设置", "🗂️", "hideList", "已隐藏子菜单列表（点击恢复）");
+    add("设置", "🏢", "officeUnify", "管理所统一确认（智能识别）");
+
 
 
     add("设置", "🤖", "m:智能AI设置", "智能AI设置");
@@ -4230,7 +4496,7 @@ function orgValOrDefault(b, k) {
 
     setFavMenus(on);
 
-    buildMenu();
+    try { buildMenu(); } catch (e) { try { console.error(e); } catch (_) {} }
 
     toast("✅ 快捷常用已保存（" + on.length + " 项）");
 
@@ -6381,7 +6647,7 @@ function orgValOrDefault(b, k) {
 
         (b.photos || []).forEach(function (p, i) {
 
-          if (!p.file) return; // 仅删除落盘的导入照片（含 added 时间戳的）
+          if (!p.file && !p.data) return;
 
           if (__delPhotosState.days !== "all" && p.added) {
 
@@ -8870,6 +9136,16 @@ function orgValOrDefault(b, k) {
 
   var CHANGES = [
 
+    { v: "v3.64", d: "2026-09-08", items: [
+      "修复（菜单 script error 根因）：补齐作用域内的收藏/隐藏统一 API（getFavMenus / setFavMenus），古建另补 menuTitleOf / toggleFavMenu，根治古建打开菜单报「getFavMenus is not defined」导致整个菜单不渲染（被 window.onerror 吞成「运行错误:script error」）；收藏/隐藏按钮继续保留二次确认，古建收藏数据与「快捷常用」共用同一份（gujian_favorites_v32）。",
+      "修复（安卓 ovkmz 导入后显示不正常 / 不能放大）：导入过程中 busy 浮层与进度面板反复显隐，地图容器尺寸变化后 Leaflet 未收到 resize，手势缩放失效且瓦片错位；现导入落库后显式 map.invalidateSize()（并延迟 300ms 补一次），并自动 fitBounds 到本次导入要素范围（pad 0.2 / maxZoom 16），导入完成即可看到新数据，不再「导入了却看不到」。",
+      "回归保持：隐藏/收藏子菜单二次确认、deb 端 🙈/★ 改内联 SVG 图标、deb 筛选后导出照片计数、安卓照片点击空白（大缩略图 + onerror 兜底）、管理所九所严格限定与统一识别、GitHub 自动升级（水利/感知 公开版与内部版均可用）与苹果 PWA 五仓库部署；四平台（Android / Win11 / 统信UOS / iOS PWA）同步。"
+    ,
+      "新增（知识库智能化内核 · 菜单「智能化内核」）：①智能模糊检索——标题/标签/来源 + 知识库片段混合排序，支持错字、简写、别名（相似度百分比展示，可一键就地提问）；②提示词生成器——6 套业务模板（巡检报告 / 维修方案 / 参数核对 / 汇报材料 / 隐患排查 / 培训要点），一键生成可直接投喂大模型的提示词，支持复制或「生成并提问」；③AI 记忆 · Hermes——对话记忆查看/清空 + 经验沉淀，沉淀条目自动被后续问答引用；④存疑反向查询——粘贴一段内容即可反查它出自哪些知识条目，并自动比对同项数值表述，列出「建议现场核实」的差异清单；⑤强制联网开关——开启后所有智能调用一律走在线大模型（本地知识库仅作上下文），断网时明确报错而不再静默降级，并提供在线连通性自检。",
+      "新增（内部版防泄密）：①内部 PWA 数据整体加密——data.js / kb_building_seed.js / ai_seed.js 用 AES-256-GCM（PBKDF2-SHA256 派生）加密为 secure/dat.enc.js，明文文件已下线（站点返回 404）；启动先弹口令门，口令正确才解密注入并加载应用（口令不在代码中明文存储，错则拒绝进入，通过一次本机记住）；②内部 PWA 部署到公开仓库 Pages，解决私有仓库不支持 Pages 导致内部版没有在线地址的问题；③内部版（偶数版本号）Android / Win11 / 统信UOS 同步加入启动口令门，公开版自动放行；④GitHub 升级内部渠道切至公开 Release 仓库，免登录即可检测与下载，安装包本身仍受启动口令保护。",
+      "回归保持：安卓 ovkmz 导入后自动 fitBounds + invalidateSize（不能放大/瓦片错位）、菜单收藏隐藏 API 补齐（getFavMenus 未定义根治）、隐藏/收藏二次确认、deb 内联 SVG 图标、管理所九所统一；四端功能对照单与版本变更同步至本版。"]},
+
+
     { v: "v3.60", d: "2026-09-07", items: [
       "公开测试版（与感知 v1.35 / 古建 v3.7.5 同步）：①知识库管理导出 md/txt/html 支持自定义文件名（默认 知识库_YYYYMMDD.md/.txt/.html）+ 自选保存文件夹（Android 原生目录选择落 Download/指定目录；Win/UOS/iOS 回退系统下载目录并提示），共享模块 kbExport 三应用同步，改一处即三端生效；②内置真实业务数据（内部渠道）；③信息与帮助（功能介绍 / 版本变更 / 四端功能对照单）更新至 v3.60；④其余导出（建筑物表格 / 照片 / ovkmz / ovobj / obj / 升级备份）自定义文件夹与文件名逐一核查保持 + 各子菜单防「运行错误:script error」冒烟回归。"
     ]},
@@ -9189,6 +9465,20 @@ function orgValOrDefault(b, k) {
   /* ---------- 四端功能对照单（跨平台同步差异，平台原生能力允许不同） ---------- */
 
   var PLATFORM_COMPARE = [
+
+    { v: "v3.64", d: "2026-09-08", note: "本版（内部版，与感知 v1.40 / 古建 v3.7.7 同步）：①新增「智能化内核」菜单组（智能模糊检索 / 提示词生成器 / AI 记忆·Hermes / 存疑反向查询 / 强制联网）；②内部版加启动口令（3305）并把内部 PWA 数据整体加密后部署到公开仓库，解决私有仓库 Pages 不可用的同时防泄密；③GitHub 升级内部渠道免登录；④安卓 ovkmz 导入自动定位修复；⑤菜单 script error 根治。", rows: [
+      { f: "智能化内核：智能模糊检索（错字 / 简写 / 别名）", a: "✅", i: "✅", w: "✅", u: "✅", n: "菜单「智能化内核 → 🔎 智能模糊检索」：标题/标签/来源 + 知识库片段混合排序，带相似度百分比" },
+      { f: "智能化内核：提示词生成器（6 套模板）", a: "✅", i: "✅", w: "✅", u: "✅", n: "巡检报告 / 维修方案 / 参数核对 / 汇报材料 / 隐患排查 / 培训要点，可复制或直接投喂模型提问" },
+      { f: "智能化内核：AI 记忆 · Hermes 沉淀", a: "✅", i: "✅", w: "✅", u: "✅", n: "对话记忆查看与清空、经验手动沉淀，沉淀条目自动被后续问答引用" },
+      { f: "智能化内核：存疑反向查询（来源 + 数值冲突）", a: "✅", i: "✅", w: "✅", u: "✅", n: "粘贴内容反查出处，自动比对同项数值差异并给出待现场核实清单；可一键联网核实" },
+      { f: "智能化内核：强制联网开关", a: "✅", i: "✅", w: "✅", u: "✅", n: "开启后所有智能调用强制走在线模型，本地仅作上下文；断网明确报错，不再静默降级；含在线连通性自检" },
+      { f: "内部版启动口令门（3305）", a: "✅", i: "✅", w: "✅", u: "✅", n: "仅内部版（偶数版本号）启用；口令不在代码中明文存储（PBKDF2+AES-GCM 校验），通过一次本机记住" },
+      { f: "内部版 PWA 数据加密（AES-256-GCM + PBKDF2）", a: "—", i: "✅", w: "—", u: "—", n: "内部 PWA 部署于公开仓库 Pages，data/知识库/AI 种子整体加密，启动需口令；明文 data.js 已下线（404）" },
+      { f: "GitHub 升级（内部版免登录直接检测与下载）", a: "✅", i: "✅", w: "✅", u: "✅", n: "内部渠道 Release 切至公开仓库，免登录；安装包本身仍受启动口令保护" },
+      { f: "安卓 ovkmz 导入后自动定位（fitBounds + invalidateSize）", a: "✅", i: "✅", w: "✅", u: "✅", n: "根治安卓导入后不能放大 / 瓦片错位；导入完成即定位到新要素范围" },
+      { f: "菜单收藏 / 隐藏 API 补齐（getFavMenus 等）", a: "✅", i: "✅", w: "✅", u: "✅", n: "根治打开菜单报 getFavMenus is not defined 导致菜单整体空白" }
+    ]},
+
 
     { v: "v3.59", d: "2026-09-07", note: "本版（公开测试版，与感知 v1.35 / 古建 v3.7.5 同步）：①知识库管理导出 md/txt/html 自定义文件名 + 自选文件夹（默认 知识库_YYYYMMDD.fmt）③信息与帮助（功能介绍 / 版本变更 / 四端功能对照单）更新至 v3.60。", rows: [
       { f: "知识库导出 md/txt/html 自定义文件名 + 自选文件夹", a: "✅ 原生桥", i: "✅ 浏览器下载", w: "✅ 浏览器下载", u: "✅ 浏览器下载", n: "v3.60 默认 知识库_YYYYMMDD.md/.txt/.html，共享模块三应用同步" },
@@ -9974,6 +10264,18 @@ function orgValOrDefault(b, k) {
     var img = $("lbImg");
 
     img.src = photoFullSrc(p);
+    img.onerror = function () {
+
+      var fb = photoSrc(p);
+
+      if (fb && fb !== img.getAttribute("src")) { img.onerror = null; img.setAttribute("src", fb); return; }
+
+      img.onerror = null;
+
+      try { toast("照片加载失败：文件可能已被清理，请重新导入或删除该照片"); } catch (e) {}
+
+    };
+
 
     lbApplyScale(1);
 
@@ -10363,7 +10665,63 @@ function orgValOrDefault(b, k) {
 
       window.__kmzSha = null;
 
+
+      // v3.62：安卓端把 ovkmz 导入的临时照片归位到建筑物目录（照片显示修复）
+
+      var photoMoved = 0, photoBad = 0;
+
+      try {
+
+        if (window.Android && typeof window.Android.linkPhotoToBuilding === "function") {
+
+          list.forEach(function (nb) {
+
+            (nb.photos || []).forEach(function (p, i) {
+
+              if (!p || !p.file || String(p.file).indexOf("photos/import_") !== 0) return;
+
+              try {
+
+                var nn = window.Android.linkPhotoToBuilding(nb.id, p.file, "pic_" + (i + 1) + ".jpg");
+
+                if (nn) { p.file = nn; photoMoved++; } else photoBad++;
+
+              } catch (e) { photoBad++; }
+
+            });
+
+          });
+
+        }
+
+      } catch (e) {}
+
       save(); render(); buildLegend();
+
+      // v3.63 导入后自动定位（安卓 WebView 导入后「显示不正常 / 不能放大」根因修复）
+
+      try {
+
+        if (typeof map !== "undefined" && map && map.invalidateSize) { try { map.invalidateSize(); } catch (e) {} }
+
+        var __pts = (list || []).filter(function (nb) {
+
+          return nb && isFinite(nb.lat) && isFinite(nb.lon) && (Math.abs(nb.lat) > 1e-6 || Math.abs(nb.lon) > 1e-6);
+
+        });
+
+        if (__pts.length && typeof map !== "undefined" && map && map.fitBounds && typeof L !== "undefined") {
+
+          var __b = L.latLngBounds(__pts.map(function (p) { return [p.lat, p.lon]; }));
+
+          try { map.fitBounds(__b.pad(0.2), { maxZoom: 16, animate: false }); } catch (e) {}
+
+          setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 300);
+
+        }
+
+      } catch (e) {}
+
 
       idle();
 
@@ -10372,6 +10730,11 @@ function orgValOrDefault(b, k) {
       if (keptExisting) msg += "\n（同名建筑已按「保留现有」处理，未覆盖）";
 
       if (noGeo) msg += "\n\n注意：其中 " + noGeo + " 个建筑没有有效坐标，地图上不会显示，可在「列表」中补录坐标。";
+
+      if (photoMoved || photoBad) msg += "\n照片落盘：成功 " + photoMoved + " 张" +
+
+        (photoBad ? ("，异常 " + photoBad + " 张（可能不显示，可到 信息与帮助→照片 核对）") : "");
+
 
       var left = (spec.photos || []).length - photoCnt;
 
@@ -11460,13 +11823,29 @@ function orgValOrDefault(b, k) {
 
     var havePhoto = {};
 
-    BUILDINGS.forEach(function (b) { if (b.photos && b.photos.length) havePhoto[normOffice(b.office) || "未设置管理所"] = 1; });
+    var totalPhotos = 0, totalBld = 0;
+    BUILDINGS.forEach(function (b) {
+
+      if (!b.photos || !b.photos.length) return;
+
+      var n = b.photos.filter(function (p) { return p.file || p.data; }).length;
+
+      if (!n) return;
+
+      var o = normOffice(b.office) || "未设置管理所";
+
+      havePhoto[o] = (havePhoto[o] || 0) + n;
+
+      totalPhotos += n; totalBld++;
+
+    });
+
 
     var officeOpts = '<label class="exp-radio"><input type="radio" name="expOffice" value="__ALL__" checked> 全部管理所（合并一个压缩包，按管理所分文件夹）</label>' +
 
       allOffices.map(function (o) {
 
-        var tag = havePhoto[o] ? "" : ' <span style="color:#bbb;font-size:11px">（暂无照片）</span>';
+        var tag = havePhoto[o] ? ' <span style="color:#2e8b57;font-size:11px">（' + havePhoto[o] + ' 张）</span>' : ' <span style="color:#bbb;font-size:11px">（暂无照片）</span>';
 
         return '<label class="exp-radio"><input type="radio" name="expOffice" value="' + esc(o) + '"> ' + esc(o) + tag + '（单独一个压缩包）</label>';
 
@@ -11501,6 +11880,8 @@ function orgValOrDefault(b, k) {
     var html =
 
       '<p style="font-size:13px;color:#555;margin-bottom:8px">选择照片导出方式：</p>' +
+      '<div style="background:var(--primary-2);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:13px;color:#333">' + '当前共有 <b>' + totalBld + '</b> 个建筑物带照片，合计 <b>' + totalPhotos + '</b> 张可导出' + (typeof filterActive === "function" && filterActive() ? '（已按当前筛选结果统计）' : '') + '</div>' +
+
 
       bldHtml +
 
@@ -11580,7 +11961,11 @@ function orgValOrDefault(b, k) {
 
       var firstB = null;
 
-      BUILDINGS.forEach(function (b) {
+      // v3.62：浏览器端（Win/UOS/iOS）ovkmz 导入的照片只有 data(base64)、没有 file，旧逻辑 if (!p.file) return 会全部跳过 → 误报「没有可导出的照片」；同时支持「筛选后导出」作用域。
+
+      var srcList = (typeof filterActive === "function" && filterActive() && typeof filteredList === "function") ? filteredList() : BUILDINGS;
+
+      srcList.forEach(function (b) {
 
         if (!b.photos || !b.photos.length) return;
 
@@ -11602,11 +11987,11 @@ function orgValOrDefault(b, k) {
 
         b.photos.forEach(function (p, i) {
 
-          if (!p.file) return;
+          if (!p.file && !p.data) return;
 
           var suffix = b.photos.length > 1 ? ("_" + (i + 1)) : "";
 
-          files.push({ relPath: p.file, folder: folder, fileName: bn + suffix });
+          files.push({ relPath: p.file || "", data: p.data || "", folder: folder, fileName: bn + suffix });
 
         });
 
@@ -13268,7 +13653,8 @@ window.upOpenUrl = upOpenUrl;
 /* ===== GitHub 升级（5090 仓库发布渠道）=====
  * 三应用通用：设置菜单「GitHub 升级（检测新版）」→ 查 GitHub Releases 最新版。
  * 水利奇偶双通道：公开版(奇数)→shuili-yitu-5090pub；内部版(偶数)→shuili-yitu5090。 */
-var upGithubCfg = { public: "g101400/shuili-yitu-5090pub", internal: "g101400/shuili-yitu5090" };
+var upGithubCfg = { public: "g101400/shuili-yitu-5090pub", internal: "g101400/shuili-yitu5090-sec" }
+var upPwaCfg = { public: "https://g101400.github.io/shuili-yitu-5090pub/", internal: "https://g101400.github.io/shuili-yitu5090-sec/" };;
 function ghChannel() {
   if (typeof getReleaseChannel === "function") { try { return getReleaseChannel(); } catch (e) {} }
   return "single";
@@ -13304,9 +13690,10 @@ function ghOpenUpgrade() {
   var ch = ghChannel();
   var html =
     '<div class="up-info">当前：<b>' + esc((typeof upCfg !== "undefined" && upCfg.appName) ? upCfg.appName : "") + "</b> · 版本 <b>" + esc((typeof APP_VERSION !== "undefined") ? APP_VERSION : "?") + "</b> · 渠道 <b>" + esc(ch === "public" ? "公开版" : (ch === "internal" ? "内部版" : "不分内外")) + "</b><br>GitHub 仓库：<b>" + esc(repo || "未配置") + "</b></div>" +
-    '<div style="font-size:13px;color:#555;margin:6px 0">从 GitHub Releases 检测该渠道最新版并下载四平台安装包（公开版免登录；内部版仓库私有，需 GitHub 账号且有该仓库权限）。</div>' +
+    '<div style="font-size:13px;color:#555;margin:6px 0">从 GitHub Releases 检测该渠道最新版并下载四平台安装包（免登录直接检测与下载；内部版由启动口令保护，口令由管理员下发）。</div>' +
     '<div class="up-btns">' +
       '<button class="btn-save" onclick="ghCheck()">🔍 检测 GitHub 新版</button>' +
+      '<button class="btn-save" onclick="ghOpenPwa()">🍎 iOS 在线地址</button>' +
       '<button class="btn-cancel" onclick="closeSheet(\'sheetGen\')">关闭</button>' +
     "</div>" +
     '<div id="ghMsg" style="font-size:13px;margin-top:10px;min-height:18px"></div>';
@@ -13347,4 +13734,12 @@ function ghCheck() {
       if (msg) msg.innerHTML = '<span class="up-warn">检测失败：' + esc((e && e.message) ? e.message : "网络不可用") + '。</span><div class="up-btns" style="margin-top:8px"><button class="btn-save" onclick="upOpenUrl(event,\'https://github.com/' + repo + '/releases/latest\')">在浏览器打开发布页</button></div>';
     });
 }
+function ghOpenPwa() {
+  var m = (typeof upPwaCfg !== "undefined") ? upPwaCfg : {};
+  var url = m[ghChannel()] || m["single"] || "";
+  if (!url) { try { toast("未配置 iOS 在线地址"); } catch (e) {} return false; }
+  try { toast("已打开 iOS 在线地址，Safari 中「分享→添加到主屏幕」即可安装"); } catch (e) {}
+  return upOpenUrl(null, url);
+}
+window.ghOpenPwa = ghOpenPwa;
 window.ghOpenUpgrade = ghOpenUpgrade; window.ghCheck = ghCheck;
