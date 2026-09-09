@@ -161,9 +161,9 @@
 
   var APPNAME = "水利工程基础信息一张图";
 
-  var APP_VERSION = "3.64";
+  var APP_VERSION = "3.66";
 
-  var APP_BUILD_DATE = "2026-09-08";
+  var APP_BUILD_DATE = "2026-09-09";
 
   // —— 双通道发版（防泄密）：版本末位奇偶决定发布通道 ——
   // 偶数(如 v3.50) = 内部版，保留单位内部数据；奇数(如 v3.49) = 公开/测试版，不含内部数据。
@@ -3617,7 +3617,9 @@ function orgValOrDefault(b, k) {
 
       { k: "upUpgrade", ico: "🔄", t: "软件升级（检测新版）", f: upOpenUpgrade },
 
-      { k: "ghUpgrade", ico: "🐙", t: "GitHub 升级（检测新版）", f: ghOpenUpgrade }
+      { k: "ghUpgrade", ico: "🐙", t: "GitHub 升级（检测新版）", f: ghOpenUpgrade },
+      { k: "chgPass", ico: "🔑", t: "修改口令", f: function () { if (window.SecBoot) { window.SecBoot.changePass(); } } },
+      { k: "forgotPass", ico: "❓", t: "忘记口令", f: function () { if (window.SecBoot) { window.SecBoot.forgotPass(); } } }
 
     ])});
 
@@ -9136,6 +9138,13 @@ function orgValOrDefault(b, k) {
 
   var CHANGES = [
 
+    { v: "v3.66", d: "2026-09-09", items: [
+      "新增（内部版访问口令保护 · 默认口令即开发者分机号 3305）：安装/首次使用弹出口令门，须输入正确口令方可进入；口令框内置「保存口令，下次不用输入」选项；设置菜单新增「🔑 修改口令」「❓ 忘记口令」子菜单——修改需先验证当前口令、新口令至少 4 位；忘记口令页提示联系开发者（分机 3305）协助重置；公开版（奇数版号）自动放行，无需口令。",
+      "实现说明：口令不落明文（AES-256-GCM + PBKDF2-SHA256 12 万次迭代，仅存 salt/iv/密文），口令错误无法进入；iOS 数据加密版（内部加密 PWA）口令由部署方固化 3305，应用内口令门自动放行、避免双重输入；数据加密版与口令门均支持本会话记住（刷新免输、关闭失效）。",
+      "回归保持：菜单 script error 根因修复、安卓 ovkmz 导入 fitBounds + invalidateSize、管理所九所统一、GitHub 免登录升级（内部渠道公开仓库）；四平台同步。"
+    ],
+    },
+
     { v: "v3.64", d: "2026-09-08", items: [
       "修复（菜单 script error 根因）：补齐作用域内的收藏/隐藏统一 API（getFavMenus / setFavMenus），古建另补 menuTitleOf / toggleFavMenu，根治古建打开菜单报「getFavMenus is not defined」导致整个菜单不渲染（被 window.onerror 吞成「运行错误:script error」）；收藏/隐藏按钮继续保留二次确认，古建收藏数据与「快捷常用」共用同一份（gujian_favorites_v32）。",
       "修复（安卓 ovkmz 导入后显示不正常 / 不能放大）：导入过程中 busy 浮层与进度面板反复显隐，地图容器尺寸变化后 Leaflet 未收到 resize，手势缩放失效且瓦片错位；现导入落库后显式 map.invalidateSize()（并延迟 300ms 补一次），并自动 fitBounds 到本次导入要素范围（pad 0.2 / maxZoom 16），导入完成即可看到新数据，不再「导入了却看不到」。",
@@ -9465,6 +9474,11 @@ function orgValOrDefault(b, k) {
   /* ---------- 四端功能对照单（跨平台同步差异，平台原生能力允许不同） ---------- */
 
   var PLATFORM_COMPARE = [
+
+    { v: "v3.66", d: "2026-09-09", note: "本版（内部版）：水利/感知 内部版新增访问口令保护（默认口令=开发者分机号 3305；记住口令 / 修改口令 / 忘记口令），公开版免密；版本与四平台同步。", rows: [
+      { f: "内部版访问口令保护（默认口令=开发者分机号 3305）", a: "✅", i: "✅", w: "✅", u: "✅", n: "首启弹口令门+记住口令选项；设置-修改口令/忘记口令；公开版免密" }
+    ],
+    },
 
     { v: "v3.64", d: "2026-09-08", note: "本版（内部版，与感知 v1.40 / 古建 v3.7.7 同步）：①新增「智能化内核」菜单组（智能模糊检索 / 提示词生成器 / AI 记忆·Hermes / 存疑反向查询 / 强制联网）；②内部版加启动口令（3305）并把内部 PWA 数据整体加密后部署到公开仓库，解决私有仓库 Pages 不可用的同时防泄密；③GitHub 升级内部渠道免登录；④安卓 ovkmz 导入自动定位修复；⑤菜单 script error 根治。", rows: [
       { f: "智能化内核：智能模糊检索（错字 / 简写 / 别名）", a: "✅", i: "✅", w: "✅", u: "✅", n: "菜单「智能化内核 → 🔎 智能模糊检索」：标题/标签/来源 + 知识库片段混合排序，带相似度百分比" },
