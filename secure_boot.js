@@ -14,7 +14,7 @@
   var KEY_SAVED = "secBootSavedN5090";   // "1" = 已记住口令，下次免输
   var KEY_OLD   = "secBootOK5090";       // 旧版已记住标记（兼容）
   var KEY_CRED  = "secBootCredN5090";    // 用户修改后的口令凭证（形状同 __SEC_BOOT）
-  var DEV_EXT   = "3305";                // 开发者分机号：默认口令即此号
+  var DEV_EXT   = "3305";                // 开发者分机号：默认口令即此号（仅用于口令比对，禁止出现在任何界面文案中）
   var DATA_LOCK = !!(window.__SEC_DATA); // 数据已用口令加密（内部加密 PWA）
 
   function sget(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
@@ -138,8 +138,8 @@
   function showForgot() {
     var m = modal(
       "<h2>忘记口令</h2>" +
-      "<p style='text-align:left'>本应用为内部版，默认口令即<strong>开发者分机号 3305</strong>。<br>" +
-      "若曾通过「设置 → 修改口令」自定义口令后遗忘，请<strong>联系开发者（分机 " + DEV_EXT + "）</strong>协助重置。</p>" +
+      "<p style='text-align:left'>本应用为内部版，默认口令即<strong>开发者分机号</strong>。<br>" +
+      "若曾通过「设置 → 修改口令」自定义口令后遗忘，请<strong>联系开发者（分机号）</strong>协助重置。</p>" +
       '<button id="secBootBtn" style="margin-top:6px">我知道了</button>'
     );
     document.getElementById("secBootBtn").onclick = m.close;
@@ -149,7 +149,7 @@
   function changePass() {
     if (!chanInternal()) { return; }
     if (DATA_LOCK) {
-      var tm = modal("<h2>修改口令</h2><p>本加密版数据已用口令固化加密，口令由部署方管理（" + DEV_EXT + "），不支持自行修改。</p>" +
+      var tm = modal("<h2>修改口令</h2><p>本加密版数据已用口令固化加密，口令由部署方管理（开发者分机号），不支持自行修改。</p>" +
         '<button id="secBootBtn">知道了</button>');
       document.getElementById("secBootBtn").onclick = tm.close;
       return;
@@ -161,7 +161,7 @@
       '<input id="secBootNew2" type="password" autocomplete="off" placeholder="再次输入新口令" />' +
       '<button id="secBootBtn">保存新口令</button>' +
       '<div id="secBootTip"></div>' +
-      '<div id="secBootHint">修改后请牢记；如遗忘请联系开发者（分机 ' + DEV_EXT + '）</div>'
+      '<div id="secBootHint">修改后请牢记；如遗忘请联系开发者（开发者分机号）</div>'
     );
     var cur = document.getElementById("secBootIn"),
         nw = document.getElementById("secBootNew"),
