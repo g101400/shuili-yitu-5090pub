@@ -466,7 +466,7 @@
         { k: "kbHermes", ico: "🧠", t: "AI 记忆 · Hermes", f: function () { try { global.closeSheet("sheetMenu"); } catch (e) {} openMemory(); } },
         { k: "kbDoubt", ico: "⚠️", t: "存疑反向查询", f: function () { try { global.closeSheet("sheetMenu"); } catch (e) {} openDoubt(); } },
         { k: "kbForce", ico: "🌐", t: "强制联网（开 / 关）", f: function () { try { global.closeSheet("sheetMenu"); } catch (e) {} openForce(); } }
-      ]
+      ].concat((global.KBV && typeof global.KBV.getMenuItems === "function") ? global.KBV.getMenuItems() : [])
     }];
   }
 

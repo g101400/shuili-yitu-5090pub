@@ -161,9 +161,9 @@
 
   var APPNAME = "水利工程基础信息一张图";
 
-  var APP_VERSION = "3.66";
+  var APP_VERSION = "3.68";
 
-  var APP_BUILD_DATE = "2026-09-09";
+  var APP_BUILD_DATE = "2026-09-10";
 
   // —— 双通道发版（防泄密）：版本末位奇偶决定发布通道 ——
   // 偶数(如 v3.50) = 内部版，保留单位内部数据；奇数(如 v3.49) = 公开/测试版，不含内部数据。
@@ -1691,7 +1691,7 @@ function orgValOrDefault(b, k) {
 
   /* ============ v3.45：修改/添加天地图密钥（防过期 / 被风控后用户自换）============
 
-   v3.46：当前密钥默认隐藏（type=password），点击 👁 切换显示；复制按钮 ask 输入密码 3305 验证后复制（防他人窃取密钥）。 */
+   v3.46：当前密钥默认隐藏（type=password），点击 👁 切换显示；复制按钮 ask 输入验证口令 验证后复制（防他人窃取密钥）。 */
 
   var TDT_PASSWORD = "3305";  // 复制/查看密钥的二次验证密码（4 位数字口令）
 
@@ -1713,7 +1713,7 @@ function orgValOrDefault(b, k) {
 
         '<button class="tbtn" id="tdtToggleEye" onclick="tdtToggleVisible()" title="显示/隐藏当前密钥">👁</button>' +
 
-        '<button class="tbtn" onclick="tdtPasteCur()" title="复制（需输密码 3305）">📋 复制</button>' +
+        '<button class="tbtn" onclick="tdtPasteCur()" title="复制（需验证口令）">📋 复制</button>' +
 
       '</div>' +
 
@@ -1749,7 +1749,7 @@ function orgValOrDefault(b, k) {
 
     if (inp.type === "password") {
 
-      // 显示前 ask 输密码 3305
+      // 显示前 ask 输验证口令
 
       ask("👁 显示密钥", "为防他人窥屏，显示当前密钥需输入密码：", [{ t: "确定", cls: "btn-confirm2", v: 1 }, { t: "取消", cls: "btn-cancel2", v: 0 }], function (ok) {
 
@@ -1805,7 +1805,7 @@ function orgValOrDefault(b, k) {
 
   }
 
-  // 复制当前密钥到剪贴板（需输密码 3305）
+  // 复制当前密钥到剪贴板（需输验证口令）
 
   window.tdtPasteCur = function () {
 
@@ -3689,9 +3689,9 @@ function orgValOrDefault(b, k) {
         var canHide = PROTECTED_HIDDEN.indexOf(it.k) < 0;
         html += '<div class="menu-item sub" data-gi="' + gi + '" data-ii="' + ii + '"><span class="menu-ico">' + it.ico + '</span><span>' + esc(it.t) + '</span>' +
 
-          (canHide ? '<span class="menu-hide" data-k="' + esc(it.k) + '" title="隐藏该菜单（可在 设置→已隐藏子菜单 恢复）" style="float:right;margin-left:6px;padding:2px 4px;cursor:pointer;color:#8a939b;line-height:0;display:inline-flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></span>' : "") +
+          (canHide ? '<span class="menu-hide" data-k="' + esc(it.k) + '" title="隐藏该菜单（可在 设置→已隐藏子菜单 恢复）" style="float:right;margin-left:26px;padding:6px 10px;cursor:pointer;color:#8a939b;line-height:0;display:inline-flex;align-items:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></span>' : "") +
 
-          '<span class="menu-fav" data-k="' + esc(it.k) + '" title="添加/移除快捷常用" style="float:right;margin-left:8px;padding:2px 4px;cursor:pointer;line-height:0;display:inline-flex;align-items:center;color:' + (starred ? "#f0a020" : "#c8cdd2") + '"><svg width="17" height="17" viewBox="0 0 24 24" fill="' + (starred ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l2.9 5.88 6.49.94-4.7 4.58 1.11 6.46L12 17.23l-5.8 3.13 1.11-6.46-4.7-4.58 6.49-.94z"/></svg></span>' + "</div>";
+          '<span class="menu-fav" data-k="' + esc(it.k) + '" title="添加/移除快捷常用" style="float:right;margin-left:14px;padding:6px 10px;cursor:pointer;line-height:0;display:inline-flex;align-items:center;color:' + (starred ? "#f0a020" : "#c8cdd2") + '"><svg width="17" height="17" viewBox="0 0 24 24" fill="' + (starred ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l2.9 5.88 6.49.94-4.7 4.58 1.11 6.46L12 17.23l-5.8 3.13 1.11-6.46-4.7-4.58 6.49-.94z"/></svg></span>' + "</div>";
 
       });
 
@@ -8341,9 +8341,9 @@ function orgValOrDefault(b, k) {
 
         var r = new FileReader();
 
-        r.onload = function () { processBuildingRows(parseCSV(r.result)); };
+        r.onload = function () { try { processBuildingRows(parseCSV(decodeBytesAuto(new Uint8Array(r.result)))); } catch (e) { $("batchBldResult").innerHTML = "<span style='color:#c0392b'>解析失败：" + esc(e.message) + "</span>"; } };
 
-        r.readAsText(file, "UTF-8");
+        r.readAsArrayBuffer(file);
 
       } else {
 
@@ -8431,7 +8431,7 @@ function orgValOrDefault(b, k) {
 
     if (window.Android && typeof window.Android.readFileBase64 === "function" && f && f.path) {
 
-      try { return new TextDecoder("utf-8").decode(b64ToBytes(window.Android.readFileBase64(f.path))); } catch (e) {}
+      try { return decodeBytesAuto(b64ToBytes(window.Android.readFileBase64(f.path))); } catch (e) {}
 
     }
 
@@ -8495,7 +8495,7 @@ function orgValOrDefault(b, k) {
 
     if (csvName) {
 
-      return zip.file(csvName).async("string").then(function (t) { idle(); processBuildingRows(parseCSV(t)); });
+      return zip.file(csvName).async("uint8array").then(function (t) { idle(); processBuildingRows(parseCSV(decodeBytesAuto(t))); });
 
     }
 
@@ -8553,7 +8553,19 @@ function orgValOrDefault(b, k) {
 
     };
 
-    var iName = findCol(["name", "名称", "建筑物名称"]);
+    var iName = findCol(["name", "名称", "建筑物名称", "设备名称", "设施名称", "项目名称", "点位名称", "水工建筑物名称"]);
+    if (iName < 0) {
+      for (var hi = 0; hi < header.length; hi++) {
+        var hv = header[hi] || "";
+        if (hv.indexOf("名称") >= 0 || hv === "name" || hv.indexOf("name") >= 0) { iName = hi; break; }
+      }
+    }
+    if (iName < 0) {
+      for (var hi2 = 0; hi2 < header.length; hi2++) {
+        var hv2 = header[hi2] || "";
+        if (hv2 && !/^(lat|lon|lng|经度|纬度|latitude|longitude|id|编号|序号|folder|文件夹|path|路径)$/.test(hv2)) { iName = hi2; break; }
+      }
+    }
 
     var iLat = findCol(["lat", "latitude", "纬度"]);
 
@@ -8565,7 +8577,19 @@ function orgValOrDefault(b, k) {
 
     var iBtype = findCol(["btype", "type", "建筑物类型", "类型"]);
 
-    var iChan = findCol(["chan", "段"]);
+    var iChan = findCol(["chan", "段", "渠道"]);
+    // v3.68：参数串列（奥维 Comment / 本应用 comment·参数说明）与宽表属性列
+    var iAttrBlob = findCol(["comment", "参数说明", "参数", "params", "描述", "说明", "属性", "attributes", "remark", "备注说明", "parameters"]);
+    var BASE_KEYS = ["name", "名称", "建筑物名称", "设备名称", "设施名称", "景点名称", "lat", "latitude", "纬度", "lon", "lng", "longitude", "经度",
+      "office", "管理所", "station", "管理站", "btype", "type", "建筑物类型", "类型", "chan", "段", "渠道", "inspect", "巡视次数",
+      "id", "编号", "序号", "文件夹", "folder", "路径", "path", "comment", "参数说明", "参数", "params", "描述", "说明", "属性", "attributes", "remark", "备注说明", "parameters"];
+    var attrCols = [];
+    for (var ci = 0; ci < header.length; ci++) {
+      var hk = header[ci] || "";
+      if (!hk) continue;
+      if (BASE_KEYS.indexOf(hk) >= 0) continue;
+      attrCols.push(ci);
+    }
 
 
 
@@ -8645,6 +8669,7 @@ function orgValOrDefault(b, k) {
 
           existing.chan = p.chan || existing.chan;
 
+          if (p.attrs && p.attrs.length) existing.attrs = mergeAttrs(existing.attrs, p.attrs);
           if (!isNaN(p.lat) && !isNaN(p.lon)) { existing.lat = p.lat; existing.lon = p.lon; existing.geom = "Point"; }
 
           updated++;
@@ -8653,7 +8678,7 @@ function orgValOrDefault(b, k) {
 
         } else {
 
-          var nb = { id: "imp" + Date.now() + (seq++), name: p.name, office: p.office, station: p.station, chan: p.chan, btype: p.btype, path: "", attrs: [], photos: [], geom: "Point" };
+          var nb = { id: "imp" + Date.now() + (seq++), name: p.name, office: p.office, station: p.station, chan: p.chan, btype: p.btype, path: "", attrs: (p.attrs || []), photos: [], geom: "Point" };
 
           if (!isNaN(p.lat) && !isNaN(p.lon)) {
 
@@ -8747,15 +8772,98 @@ function orgValOrDefault(b, k) {
 
 
 
+
+  /* ---------- v3.68 智能文本解码 ---------- */
+  function looksUtf8Bytes(b) {
+    var i = 0, n = b.length;
+    while (i < n) {
+      var c = b[i];
+      if (c < 0x80) { i++; continue; }
+      var len = c >= 0xF0 ? 4 : (c >= 0xE0 ? 3 : (c >= 0xC0 ? 2 : 0));
+      if (!len) return false;
+      if (i + len > n) return false;
+      for (var j = 1; j < len; j++) { if ((b[i + j] & 0xC0) !== 0x80) return false; }
+      i += len;
+    }
+    return true;
+  }
+  // 自动识别编码：UTF-8(BOM/合法) 优先，否则按 GB18030/GBK 解码（奥维导出的 CSV 多为 GBK）
+  function decodeBytesAuto(bytes) {
+    try {
+      if (!bytes) return "";
+      var b = bytes;
+      if (b.length > 2 && b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) {
+        return new TextDecoder("utf-8").decode(b.subarray ? b.subarray(3) : b.slice(3));
+      }
+      if (looksUtf8Bytes(b)) {
+        try { return new TextDecoder("utf-8").decode(b); } catch (e) {}
+      }
+      try { return new TextDecoder("gb18030").decode(b); } catch (e) {}
+      try { return new TextDecoder("gbk").decode(b); } catch (e) {}
+      return new TextDecoder("utf-8").decode(b);
+    } catch (e) {
+      try { return new TextDecoder("utf-8").decode(bytes); } catch (e2) { return ""; }
+    }
+  }
+  /* ---------- v3.68 属性值串解析（| / 换行 / ; 均可作条目分隔；键:值） ---------- */
+  function parseAttrBlob(t) {
+    t = String(t == null ? "" : t);
+    if (!t.trim()) return [];
+    var pipe = (t.match(/\|/g) || []).length;
+    var semi = (t.match(/[;；]/g) || []).length;
+    var nl = (t.match(/\r?\n/g) || []).length;
+    var parts;
+    if (pipe) parts = t.split(/\|/);
+    else if (semi) parts = t.split(/[;；]/);
+    else if (nl) parts = t.split(/\r?\n/);
+    else parts = [t];
+    var out = [];
+    parts.forEach(function (s) {
+      s = String(s).trim();
+      if (!s) return;
+      var m = s.match(/^([^:：]{1,30})[:：]([\s\S]*)$/);
+      if (m) {
+        var k = m[1].trim(), v = m[2].trim();
+        if (k) out.push([k, v]);
+      }
+    });
+    return out;
+  }
+  // 属性合并：后者覆盖前者（按键）
+  function mergeAttrs(base, add) {
+    var map = {}, order = [];
+    (base || []).forEach(function (a) { if (a && a[0]) { if (!(a[0] in map)) order.push(a[0]); map[a[0]] = a[1]; } });
+    (add || []).forEach(function (a) { if (a && a[0]) { if (!(a[0] in map)) order.push(a[0]); map[a[0]] = a[1]; } });
+    return order.map(function (k) { return [k, map[k]]; });
+  }
+  // v3.68：自动识别 CSV 分隔符（, ; TAB）。只扫首行（引号内换行不算），且不把 | 当分隔符（参数为 | 分隔）
+  function detectCSVDelim(text) {
+    var t = String(text == null ? "" : text), inQ = false, line = "";
+    for (var i = 0; i < t.length && i < 20000; i++) {
+      var c = t.charAt(i);
+      if (c === '"') { inQ = !inQ; continue; }
+      if (!inQ && (c === "\n")) break;
+      line += c;
+    }
+    var chars = [",", ";", "\t"], cnt = [0, 0, 0];
+    for (var j = 0; j < line.length; j++) {
+      for (var k = 0; k < chars.length; k++) { if (line.charAt(j) === chars[k]) cnt[k]++; }
+    }
+    var best = ",", bv = -1;
+    for (var m = 0; m < chars.length; m++) { if (cnt[m] > bv) { bv = cnt[m]; best = chars[m]; } }
+    return best;
+  }
   /* ---------- CSV 解析 ---------- */
 
-  function parseCSV(text) {
+  function parseCSV(text, delim) {
 
     if (text == null) return [];
 
     // 剥离 UTF-8 BOM（EF BB BF），否则首列表头会被污染（如 ﻿name），导致"未找到名称列"
 
     text = String(text).replace(/^\uFEFF/, "");
+
+    if (!delim) delim = detectCSVDelim(text);
 
     var rows = [];
 
@@ -8779,7 +8887,7 @@ function orgValOrDefault(b, k) {
 
         if (c === '"') inQuotes = true;
 
-        else if (c === ',' || c === '\t' || c === ';') { row.push(field); field = ""; }
+        else if (c === delim) { row.push(field); field = ""; }
 
         else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
 
@@ -9138,9 +9246,22 @@ function orgValOrDefault(b, k) {
 
   var CHANGES = [
 
+    { v: "v3.68", d: "2026-09-10", items: [
+      "优化（口令提示）：内部版所有对话框/提示语不再出现具体口令数字，仅提示「默认口令即开发者分机号」；忘记口令提示联系开发者（分机号）。",
+      "优化（防误触）：菜单子项与右侧「隐藏 / 收藏」按钮间距由 6/8px 拉大到 26/14px，点击区同步放大，不再误触。",
+      "修复（导入建筑物 CSV 报「未找到名称列」）：新增编码自动识别（UTF-8 / GB18030，奥维导出多为 GBK）+ 分隔符自动识别 + 名称列智能匹配（名称/设备名称/建筑物名称…）；兼容奥维导出的 Comment 列（参数以 | 分隔、键值以 : 分隔）与本应用导出的 comment 列（| 或 ; 分隔），并支持「每个参数一列」的宽表，属性随建筑物一并入库。",
+      "优化（导出建筑物 CSV）：第 8 列表头「参数说明」改为 comment，参数条目分隔由 ; 改为 |，与导入侧完全往返兼容。",
+      "优化（ovkmz 导出）：建筑物备注改为「键 : 值」之间以 | + 换行分隔，奥维与本应用均可读。",
+      "新增（本地向量智能化内核 kb_vector.js · 6 项）：①参数/自然语言反查建筑物（如「宽度3米的闸门」「设计流量70的进水闸」，带相关度与命中参数）；②类型与单位统计汇总（自然语言提问如「进水闸 节制闸 各多少个」）；③预案/规程文档导入自动切片（整句粒度+重叠）并向量化，按建筑物名称自动关联，查询时一并返回调度/应用要求；④查询结果一键生成结构化报告（概述/相关建筑物/统计/类型释义/文档片段/结论），可导出 doc / docx 并支持预览与打印（打印可另存 PDF）；⑤PDF 转 Word 工具（解析 PDF 文本流保留段落顺序，输出 doc + docx，扫描件提示走 OCR）；⑥建筑物类型「定义·含义·作用」向量化写入本地知识库。全部离线可用（哈希 TF-IDF + 余弦），无需联网。",
+      "新增（图片预览交互）：电脑端支持滚轮缩放与鼠标拖拽平移，手机端支持双指捏合缩放、单指拖动、双击放大，长按 600ms 弹出菜单（保存 / 分享 / 复位 / 放大缩小 / 上一下一张 / 关闭）。",
+      "新增（游记 / 备忘录 / 运维记录导出）：列表与编辑器均支持导出 Word（doc / docx）与 PDF（预览打印另存）。"
+    ],
+    },
+
+
     { v: "v3.66", d: "2026-09-09", items: [
-      "新增（内部版访问口令保护 · 默认口令即开发者分机号 3305）：安装/首次使用弹出口令门，须输入正确口令方可进入；口令框内置「保存口令，下次不用输入」选项；设置菜单新增「🔑 修改口令」「❓ 忘记口令」子菜单——修改需先验证当前口令、新口令至少 4 位；忘记口令页提示联系开发者（分机 3305）协助重置；公开版（奇数版号）自动放行，无需口令。",
-      "实现说明：口令不落明文（AES-256-GCM + PBKDF2-SHA256 12 万次迭代，仅存 salt/iv/密文），口令错误无法进入；iOS 数据加密版（内部加密 PWA）口令由部署方固化 3305，应用内口令门自动放行、避免双重输入；数据加密版与口令门均支持本会话记住（刷新免输、关闭失效）。",
+      "新增（内部版访问口令保护 · 默认口令即开发者分机号）：安装/首次使用弹出口令门，须输入正确口令方可进入；口令框内置「保存口令，下次不用输入」选项；设置菜单新增「🔑 修改口令」「❓ 忘记口令」子菜单——修改需先验证当前口令、新口令至少 4 位；忘记口令页提示联系开发者（分机号）协助重置；公开版（奇数版号）自动放行，无需口令。",
+      "实现说明：口令不落明文（AES-256-GCM + PBKDF2-SHA256 12 万次迭代，仅存 salt/iv/密文），口令错误无法进入；iOS 数据加密版（内部加密 PWA）口令由部署方由部署方固化，应用内口令门自动放行、避免双重输入；数据加密版与口令门均支持本会话记住（刷新免输、关闭失效）。",
       "回归保持：菜单 script error 根因修复、安卓 ovkmz 导入 fitBounds + invalidateSize、管理所九所统一、GitHub 免登录升级（内部渠道公开仓库）；四平台同步。"
     ],
     },
@@ -9187,7 +9308,7 @@ function orgValOrDefault(b, k) {
       "修复与优化（统一三日经验教训的收敛版本，功能不删不减）：①子菜单「长按 600ms」即可添加/移除「快捷常用」——与右侧 ☆ 并存，解决手机/平板上 15px 星标点不准、易误触；②UOS deb 统一修复：纯浏览器壳（零 PyQt6，龙芯不崩壳）、control 补全 postinst/postrm/md5sums、postinst 以 dpkg -L 收敛历史残留、每端独立端口（7205/7206/7207）；③Win MSI/EXE 根治 WebView2 E_ACCESSDENIED（userDataFolder 用户可写）+ 出包修复标记门禁；④webroot 垃圾清理与打包剪枝。"
     ]},
     { v: "v3.46", d: "2026-08-31", items: [
-      "回归修复（已知问题修复，功能不删不减）：①导出建筑物表格/导出照片菜单 script error 修复并打通；②全菜单运行错误回归（window.onerror 全局拦截 + 关键菜单 path 兜底）；③导入压缩包照片回退至 level-aware 三级匹配（按 局→管理处→所→站→段 longest-match）；④筛选 管理所/管理站/建筑物类型「添加成功」生效修复（persist + SETTINGS 写入）；⑤历史关键词上移紧挨查询关键词；⑥本地智能查询增强（无 KB 条目时改用 App 自有组织数据作答）；⑦AI 结果提示进一步操作 + 单击/双击复制关键词；⑧隐藏当前密钥显示，复制需密码 3305。"
+      "回归修复（已知问题修复，功能不删不减）：①导出建筑物表格/导出照片菜单 script error 修复并打通；②全菜单运行错误回归（window.onerror 全局拦截 + 关键菜单 path 兜底）；③导入压缩包照片回退至 level-aware 三级匹配（按 局→管理处→所→站→段 longest-match）；④筛选 管理所/管理站/建筑物类型「添加成功」生效修复（persist + SETTINGS 写入）；⑤历史关键词上移紧挨查询关键词；⑥本地智能查询增强（无 KB 条目时改用 App 自有组织数据作答）；⑦AI 结果提示进一步操作 + 单击/双击复制关键词；⑧隐藏当前密钥显示，复制需验证口令。"
     ]},
     { v: "v3.30", d: "2026-08-24", items: [
 
@@ -9475,18 +9596,24 @@ function orgValOrDefault(b, k) {
 
   var PLATFORM_COMPARE = [
 
-    { v: "v3.66", d: "2026-09-09", note: "本版（内部版）：水利/感知 内部版新增访问口令保护（默认口令=开发者分机号 3305；记住口令 / 修改口令 / 忘记口令），公开版免密；版本与四平台同步。", rows: [
-      { f: "内部版访问口令保护（默认口令=开发者分机号 3305）", a: "✅", i: "✅", w: "✅", u: "✅", n: "首启弹口令门+记住口令选项；设置-修改口令/忘记口令；公开版免密" }
+    { f: "图片预览（滚轮/拖拽/双指缩放/长按菜单）与 游记·备忘录导出 Word/PDF", a: "✅", i: "✅", w: "✅", u: "✅", n: "photo_gesture.js + 报告导出" },
+
+    { f: "CSV 导入导出兼容（Comment/comment 列 · | 与 ; · GBK 自动识别）", a: "✅", i: "✅", w: "✅", u: "✅", n: "修复奥维导出导入报未找到名称列" },
+
+    { f: "本地向量智能化内核（参数反查 / 统计 / 文档关联 / 报告导出 / PDF转Word / 类型知识库）", a: "✅", i: "✅", w: "✅", u: "✅", n: "kb_vector.js：离线哈希 TF-IDF + 余弦，无需联网" },
+
+    { v: "v3.66", d: "2026-09-09", note: "本版（内部版）：水利/感知 内部版新增访问口令保护（默认口令=开发者分机号；记住口令 / 修改口令 / 忘记口令），公开版免密；版本与四平台同步。", rows: [
+      { f: "内部版访问口令保护（默认口令=开发者分机号）", a: "✅", i: "✅", w: "✅", u: "✅", n: "首启弹口令门+记住口令选项；设置-修改口令/忘记口令；公开版免密" }
     ],
     },
 
-    { v: "v3.64", d: "2026-09-08", note: "本版（内部版，与感知 v1.40 / 古建 v3.7.7 同步）：①新增「智能化内核」菜单组（智能模糊检索 / 提示词生成器 / AI 记忆·Hermes / 存疑反向查询 / 强制联网）；②内部版加启动口令（3305）并把内部 PWA 数据整体加密后部署到公开仓库，解决私有仓库 Pages 不可用的同时防泄密；③GitHub 升级内部渠道免登录；④安卓 ovkmz 导入自动定位修复；⑤菜单 script error 根治。", rows: [
+    { v: "v3.64", d: "2026-09-08", note: "本版（内部版，与感知 v1.40 / 古建 v3.7.7 同步）：①新增「智能化内核」菜单组（智能模糊检索 / 提示词生成器 / AI 记忆·Hermes / 存疑反向查询 / 强制联网）；②内部版加启动口令并把内部 PWA 数据整体加密后部署到公开仓库，解决私有仓库 Pages 不可用的同时防泄密；③GitHub 升级内部渠道免登录；④安卓 ovkmz 导入自动定位修复；⑤菜单 script error 根治。", rows: [
       { f: "智能化内核：智能模糊检索（错字 / 简写 / 别名）", a: "✅", i: "✅", w: "✅", u: "✅", n: "菜单「智能化内核 → 🔎 智能模糊检索」：标题/标签/来源 + 知识库片段混合排序，带相似度百分比" },
       { f: "智能化内核：提示词生成器（6 套模板）", a: "✅", i: "✅", w: "✅", u: "✅", n: "巡检报告 / 维修方案 / 参数核对 / 汇报材料 / 隐患排查 / 培训要点，可复制或直接投喂模型提问" },
       { f: "智能化内核：AI 记忆 · Hermes 沉淀", a: "✅", i: "✅", w: "✅", u: "✅", n: "对话记忆查看与清空、经验手动沉淀，沉淀条目自动被后续问答引用" },
       { f: "智能化内核：存疑反向查询（来源 + 数值冲突）", a: "✅", i: "✅", w: "✅", u: "✅", n: "粘贴内容反查出处，自动比对同项数值差异并给出待现场核实清单；可一键联网核实" },
       { f: "智能化内核：强制联网开关", a: "✅", i: "✅", w: "✅", u: "✅", n: "开启后所有智能调用强制走在线模型，本地仅作上下文；断网明确报错，不再静默降级；含在线连通性自检" },
-      { f: "内部版启动口令门（3305）", a: "✅", i: "✅", w: "✅", u: "✅", n: "仅内部版（偶数版本号）启用；口令不在代码中明文存储（PBKDF2+AES-GCM 校验），通过一次本机记住" },
+      { f: "内部版启动口令门", a: "✅", i: "✅", w: "✅", u: "✅", n: "仅内部版（偶数版本号）启用；口令不在代码中明文存储（PBKDF2+AES-GCM 校验），通过一次本机记住" },
       { f: "内部版 PWA 数据加密（AES-256-GCM + PBKDF2）", a: "—", i: "✅", w: "—", u: "—", n: "内部 PWA 部署于公开仓库 Pages，data/知识库/AI 种子整体加密，启动需口令；明文 data.js 已下线（404）" },
       { f: "GitHub 升级（内部版免登录直接检测与下载）", a: "✅", i: "✅", w: "✅", u: "✅", n: "内部渠道 Release 切至公开仓库，免登录；安装包本身仍受启动口令保护" },
       { f: "安卓 ovkmz 导入后自动定位（fitBounds + invalidateSize）", a: "✅", i: "✅", w: "✅", u: "✅", n: "根治安卓导入后不能放大 / 瓦片错位；导入完成即定位到新要素范围" },
@@ -11644,7 +11771,7 @@ function orgValOrDefault(b, k) {
 
     function placemark(b) {
 
-      var desc = (b.attrs || []).map(function (a) { return esc(a[0]) + " : " + esc(a[1]); }).join("|");
+      var desc = (b.attrs || []).map(function (a) { return esc(a[0]) + " : " + esc(a[1]); }).join("|\n");
 
       var atta = "";
 
@@ -12355,7 +12482,7 @@ function orgValOrDefault(b, k) {
 
     var offsNorm = offs.map(function (o) { return o ? (normOffice(o) || o) : ""; });
 
-    var labelMap = { name: "名称", guanchu: "管理处", office: "管理所", station: "管理站", chan: "段", btype: "建筑物类型", lat: "纬度", lon: "经度", params: "参数说明", inspect: "巡视次数" };
+    var labelMap = { name: "名称", guanchu: "管理处", office: "管理所", station: "管理站", chan: "段", btype: "建筑物类型", lat: "纬度", lon: "经度", params: "comment", inspect: "巡视次数" };
 
     var attrCols = cols.filter(function (c) { return c.indexOf("attr:") === 0; }).map(function (c) { return c.slice(5); });
 
@@ -12391,7 +12518,7 @@ function orgValOrDefault(b, k) {
 
         var line = baseCols.map(function (c) {
 
-          if (c === "params") return (b.attrs || []).map(function (a) { return a[0] + ":" + a[1]; }).join("; ");
+          if (c === "params") return (b.attrs || []).map(function (a) { return a[0] + ":" + a[1]; }).join("|");
 
           if (c === "inspect") return (b.inspections || []).length;
 
@@ -13084,6 +13211,70 @@ function nmCurrentNote() {
 }
 
 /* ---------- 导出下载（与导入格式一致，图片以 base64 内嵌）---------- */
+
+/* ---------- v3.68：游记/备忘录 导出 Word / PDF（打印另存） ---------- */
+function nmNoteHtml(n) {
+  var bindName = "";
+  try {
+    var rs = nmCfg.recs() || [];
+    for (var i = 0; i < rs.length; i++) if (rs[i].id === n.bindId) { bindName = nmCfg.recName(rs[i]); break; }
+  } catch (e) {}
+  var h = "<h2>" + (n.title || "（无标题）") + "</h2>";
+  h += "<p style='color:#666;font-size:13px'>" + nmCfg.kind + "　" + (n.time || "") +
+       (bindName ? "　·　" + nmCfg.bindLabel.replace("绑定", "") + "：" + bindName : "") + "</p><hr>";
+  h += (n.html || "") || ("<p>" + (n.text || "") + "</p>");
+  return h;
+}
+function nmNotesHtml(items) {
+  var h = "", i;
+  for (i = 0; i < items.length; i++) {
+    h += nmNoteHtml(items[i]);
+    if (i < items.length - 1) h += "<div style='page-break-after:always'></div>";
+  }
+  return h;
+}
+function nmName(items, ext) {
+  var d = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  return "notes_" + (nmCfg.fileTag || "export") + "_" + d + (items.length > 1 ? "（" + items.length + "条）" : "") + "." + ext;
+}
+function nmExportWord(items) {
+  if (!items || !items.length) { toast("没有可导出的" + nmCfg.kind); return; }
+  var html = nmNotesHtml(items);
+  if (window.KBV && window.KBV.exportDoc) { window.KBV.exportDoc(nmName(items, "doc"), html); return; }
+  var blob = new Blob(["\ufeff<html><head><meta charset='utf-8'></head><body>" + html + "</body></html>"], { type: "application/msword" });
+  var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nmName(items, "doc");
+  document.body.appendChild(a); a.click(); setTimeout(function () { try { a.remove(); } catch (e) {} }, 1500);
+  toast("已导出 Word");
+}
+function nmExportDocx(items) {
+  if (!items || !items.length) { toast("没有可导出的" + nmCfg.kind); return; }
+  if (!(window.KBV && window.KBV.exportDocx)) { toast("当前版本不支持 docx，已改用 doc"); nmExportWord(items); return; }
+  var lines = [];
+  items.forEach(function (n) {
+    var bindName = "";
+    try {
+      var rs = nmCfg.recs() || [];
+      for (var i = 0; i < rs.length; i++) if (rs[i].id === n.bindId) { bindName = nmCfg.recName(rs[i]); break; }
+    } catch (e) {}
+    lines.push("# " + (n.title || "（无标题）"));
+    lines.push("- " + nmCfg.kind + "：" + (n.time || "") + (bindName ? "　" + nmCfg.bindLabel.replace("绑定", "") + "：" + bindName : ""));
+    var txt = String(n.text || (n.html || "").replace(/<[^>]+>/g, " ")).split(/\n+/);
+    txt.forEach(function (t) { if (t && t.trim()) lines.push("- " + t.trim()); });
+    lines.push("");
+  });
+  window.KBV.exportDocx(nmName(items, "docx"), lines);
+}
+function nmExportPdf(items) {
+  if (!items || !items.length) { toast("没有可导出的" + nmCfg.kind); return; }
+  var html = nmNotesHtml(items);
+  if (window.KBV && window.KBV.previewPrint) { window.KBV.previewPrint((items[0].title || nmCfg.kind) + "（打印 / 另存 PDF）", html); return; }
+  var w = window.open("", "_blank");
+  if (!w) { toast("请允许弹窗后重试"); return; }
+  w.document.write("<html><head><meta charset='utf-8'><title>" + (items[0].title || nmCfg.kind) + "</title></head><body>" +
+    "<div style='margin-bottom:12px'><button onclick='window.print()'>🖨 打印 / 另存为 PDF</button></div>" + html + "</body></html>");
+  w.document.close();
+}
+
 function nmDownload(items) {
   var data = { app: nmCfg.appName, kind: nmCfg.kind, version: 1, exportedAt: new Date().toISOString(), items: items };
   var fn = "notes_" + (nmCfg.fileTag || "export") + "_" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + ".json";
@@ -13136,6 +13327,8 @@ function nmOpenEditor(id) {
           (editing ? '<button class="nm-btn nm-ghost" id="nmDel">🗑 删除</button>' : '') +
           '<button class="nm-btn nm-ghost" id="nmAsk">🤖 问AI</button>' +
           '<button class="nm-btn nm-ghost" id="nmExp">⬇ 导出</button>' +
+          '<button class="nm-btn nm-ghost" id="nmExpDoc">📄 Word</button>' +
+          '<button class="nm-btn nm-ghost" id="nmExpPdf">🖨 PDF</button>' +
           '<button class="nm-btn nm-save" id="nmSave">💾 保存</button>' +
         '</div>' +
       '</div>' +
@@ -13194,7 +13387,21 @@ function nmOpenEditor(id) {
     var all = nmGetAll().filter(function (n) { return n.id !== editing.id; });
     nmPersist(all); toast("已删除"); mask.remove(); nmOpenList();
   };
-  document.getElementById("nmExp").onclick = function () { nmDownload([nmCurrentNote()]); };
+  document.getElementById("nmExp").onclick = function () {
+  }
+  document.getElementById("nmExpDoc").onclick = function () {
+    var cur = nmEditId ? nmById(nmEditId) : null;
+    if (!cur) { var t = document.getElementById("nmTitle"); var ed2 = document.getElementById("nmEdit");
+      cur = { title: (t && t.value) || nmCfg.kind, html: ed2 ? ed2.innerHTML : "", text: ed2 ? ed2.innerText : "", time: new Date().toLocaleString("zh-CN"), bindId: (document.getElementById("nmBind") || {}).value || "" }; }
+    nmExportWord([cur]);
+  };
+  document.getElementById("nmExpPdf").onclick = function () {
+    var cur = nmEditId ? nmById(nmEditId) : null;
+    if (!cur) { var t = document.getElementById("nmTitle"); var ed2 = document.getElementById("nmEdit");
+      cur = { title: (t && t.value) || nmCfg.kind, html: ed2 ? ed2.innerHTML : "", text: ed2 ? ed2.innerText : "", time: new Date().toLocaleString("zh-CN"), bindId: (document.getElementById("nmBind") || {}).value || "" }; }
+    nmExportPdf([cur]);
+  };
+  function nmUnusedGuard() { nmDownload([nmCurrentNote()]); };
   document.getElementById("nmAsk").onclick = function () { nmAskAI(); };
 }
 
@@ -13253,6 +13460,8 @@ function nmOpenList() {
             '<button class="nm-tb" id="nmNew">✍️ 写' + nmCfg.kind + '</button>' +
             '<button class="nm-tb" id="nmImportBtn">⬆ 导入</button>' +
             '<button class="nm-tb" id="nmExpAll">⬇ 导出</button>' +
+            '<button class="nm-tb" id="nmExpDocAll">📄 Word</button>' +
+            '<button class="nm-tb" id="nmExpPdfAll">🖨 PDF</button>' +
             '<button class="nm-tb" id="nmAskAll">🤖 问AI</button></div>' +
           '<div id="nmListBox"></div>' +
           '<input type="file" id="nmImpFile" accept=".json,application/json" style="display:none">' +
@@ -13267,6 +13476,8 @@ function nmOpenList() {
   mask.onclick = function (e) { if (e.target === mask) mask.remove(); };
   document.getElementById("nmNew").onclick = function () { mask.remove(); nmOpenEditor(null); };
   document.getElementById("nmExpAll").onclick = function () { var a = nmGetAll(); if (!a.length) { toast("还没有" + nmCfg.kind); return; } nmDownload(a); };
+  document.getElementById("nmExpDocAll").onclick = function () { var a = nmGetAll(); if (!a.length) { toast("还没有" + nmCfg.kind); return; } if (confirm("导出 Word：doc（兼容好）请点“确定”；docx（需 Office 2007+）请点“取消”")) { nmExportWord(a); } else { nmExportDocx(a); } };
+  document.getElementById("nmExpPdfAll").onclick = function () { var a = nmGetAll(); if (!a.length) { toast("还没有" + nmCfg.kind); return; } nmExportPdf(a); };
   document.getElementById("nmAskAll").onclick = function () { nmAskAI(); };
   document.getElementById("nmImportBtn").onclick = function () { document.getElementById("nmImpFile").click(); };
   document.getElementById("nmImpFile").onchange = function () {
