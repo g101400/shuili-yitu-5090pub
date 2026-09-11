@@ -161,9 +161,9 @@
 
   var APPNAME = "水利工程基础信息一张图";
 
-  var APP_VERSION = "3.68";
+  var APP_VERSION = "3.73";
 
-  var APP_BUILD_DATE = "2026-09-10";
+  var APP_BUILD_DATE = "2026-09-11";
 
   // —— 双通道发版（防泄密）：版本末位奇偶决定发布通道 ——
   // 偶数(如 v3.50) = 内部版，保留单位内部数据；奇数(如 v3.49) = 公开/测试版，不含内部数据。
@@ -562,11 +562,19 @@
 
   function setCustomGuanchu(a) { try { localStorage.setItem("customGuanchuList", JSON.stringify(a)); } catch (e) {} }
 
+  // v3.70：管理处选项与「组织与类型管理」同源（不再单方面硬塞常量，消除“两面不一致”）
+
   function guanchuOptions() {
 
-    var arr = getCustomGuanchu().slice();
+    var arr = [];
 
-    CANONICAL_GUANCHU.forEach(function (v) { if (v && arr.indexOf(v) < 0) arr.push(v); });
+    var store = null; try { store = orgStore(); } catch (e) {}
+
+    var base = (store && Array.isArray(store.guanchu)) ? store.guanchu : getCustomGuanchu();
+
+    base.forEach(function (v) { if (v && arr.indexOf(v) < 0) arr.push(v); });
+
+    getCustomGuanchu().forEach(function (v) { if (v && arr.indexOf(v) < 0) arr.push(v); });
 
     var dataVals = [];
 
@@ -613,6 +621,18 @@
       if (!Array.isArray(saved[lv.k])) saved[lv.k] = def[lv.k];
 
       if (lv.k === "suo") CANONICAL_OFFICES.forEach(function (o) { if (saved[lv.k].indexOf(o) < 0) saved[lv.k].push(o); });
+
+      // v3.70：管理处首次初始化时补齐权威清单（5 个处），使面板与筛选栏一一对应；
+
+      // 一旦用户自行增删改（清单已超出默认单值），则尊重用户清单，不再强行回灌，保证删除/改名可生效。
+
+      if (lv.k === "guanchu") {
+
+        var untouched = (saved[lv.k].length <= 1 && saved[lv.k].indexOf(ORG_DEFAULT_NAMES.guanchu) >= 0);
+
+        if (untouched) CANONICAL_GUANCHU.forEach(function (o) { if (saved[lv.k].indexOf(o) < 0) saved[lv.k].push(o); });
+
+      }
 
     });
 
@@ -1466,6 +1486,30 @@ function orgValOrDefault(b, k) {
     }
 
     cb();
+
+  }
+
+  /* 本地操作确认：本地导入/导出不耗流量，故不再提示"非 WiFi"。
+     文件较小（< 100MB）直接执行，不弹窗；较大时以"操作提示"告知文件大小与耗时。 */
+  function estPhotosBytes(n) { return (n || 0) * 2.5 * 1024 * 1024; }
+
+  function confirmLocal(action, bytes, cb) {
+
+    var LIMIT = 100 * 1024 * 1024; // 100MB：小于此值视为小文件，直接执行
+
+    if (!bytes || bytes < LIMIT) { cb(); return; }
+
+    var mb = bytes / 1024 / 1024;
+
+    var human = mb >= 1024 ? ((mb / 1024).toFixed(2) + " GB") : (Math.round(mb) + " MB");
+
+    ask("操作提示",
+
+      esc(action) + "<br>文件大小为 <b>" + human + "</b>，耗时较长，是否继续？",
+
+      [{ t: "继续", cls: "btn-confirm2", v: 1 }, { t: "取消", cls: "btn-cancel", v: 0 }],
+
+      function (ok) { if (ok) cb(); });
 
   }
 
@@ -3501,23 +3545,8 @@ function orgValOrDefault(b, k) {
 
       ]},
 
-      { g: "数据管理", ico: "🗂️", items: [
-
-        { k: "impBld", ico: "📊", t: "批量导入建筑物", f: batchImportBuildings },
-
-        { k: "impPhoto", ico: "🖼️", t: "批量导入照片", f: batchImportPhotos },
-
-        { k: "expTable", ico: "📑", t: "导出建筑物表格", f: exportTable },
-
-        { k: "expPhoto", ico: "🗂️", t: "导出照片（按管理所）", f: exportPhotos },
-
-        { k: "cleanCache", ico: "🧹", t: "清理导入缓存（释放空间）", f: cleanImportCache },
-
-        { k: "delPhotos", ico: "🗑️", t: "删除添加的照片", f: deleteImportedPhotos },
-
-      ]},
-
-      { g: "传输与共享", ico: "🔗", items: [
+      // v3.70：导入导出独立成组（收发成对、就近排列；PDF 转 Word 由内核组并入）
+      { g: "导入与导出", ico: "📥", items: [
 
         { k: "impKmz", ico: "📥", t: "导入 ovkmz（奥维）", f: importKmz },
 
@@ -3530,6 +3559,27 @@ function orgValOrDefault(b, k) {
         { k: "impObj", ico: "📍", t: "导入 obj 坐标（文本）", f: importObj },
 
         { k: "expObj", ico: "📤", t: "导出 obj 坐标（文本）", f: exportObj },
+
+        { k: "impBld", ico: "📊", t: "批量导入建筑物", f: batchImportBuildings },
+
+        { k: "expTable", ico: "📑", t: "导出建筑物表格", f: exportTable },
+
+        { k: "impPhoto", ico: "🖼️", t: "批量导入照片", f: batchImportPhotos },
+
+        { k: "expPhoto", ico: "🗂️", t: "导出照片（按管理所）", f: exportPhotos }
+
+      ]},
+
+      // v3.70：数据维护（清理/删除，与导入导出分离，避免误触）
+      { g: "数据维护", ico: "🧹", items: [
+
+        { k: "cleanCache", ico: "🧹", t: "清理导入缓存（释放空间）", f: cleanImportCache },
+
+        { k: "delPhotos", ico: "🗑️", t: "删除添加的照片", f: deleteImportedPhotos }
+
+      ]},
+
+      { g: "传输与共享", ico: "🔗", items: [
 
         { k: "xferSet", ico: "⚙️", t: "传输设置（WiFi/网盘/续传）", f: openXferSettings },
 
@@ -3551,7 +3601,12 @@ function orgValOrDefault(b, k) {
 
         { k: "inspect", ico: "📷", t: "巡视（添加照片/巡查时间/情况）", f: function () { closeSheet("sheetMenu"); openInspect(null); } },
 
-        { k: "inspectRoute", ico: "🛤️", t: "我的巡视路线", f: function () { closeSheet("sheetMenu"); openInspectRoute(); } },
+        { k: "inspectRoute", ico: "🛤️", t: "我的巡视路线", f: function () { closeSheet("sheetMenu"); openInspectRoute(); } }
+
+      ]},
+
+      // v3.70：备忘录独立成组（从「运行维护」移出，归类更清晰）
+      { g: "备忘录", ico: "📒", items: [
 
         { k: "noteWrite", ico: "✍️", t: "写备忘录", f: function () { closeSheet("sheetMenu"); nmOpenEditor(null); } },
 
@@ -3579,10 +3634,21 @@ function orgValOrDefault(b, k) {
 
     }
 
-    // v3.64：智能化内核（模糊检索 / 提示词生成 / AI记忆·Hermes / 存疑反向查询 / 强制联网）
+    // v3.64 / v3.70：知识库与智能（模糊检索 / 提示词生成 / AI记忆·Hermes / 存疑反向查询 / 强制联网 + 向量内核）
     if (window.KBCore && typeof KBCore.getMenuGroups === "function") {
       KBCore.getMenuGroups().forEach(function (g) {
         g.items.forEach(function (it) { if (!it.k) it.k = "m:" + it.t; });
+        if (g.g === "智能化内核") {
+          g.g = "知识库与智能"; // v3.70：合并概念重叠的两个 AI 组命名
+          // PDF 转 Word 工具 → 并入「导入与导出」组（功能不变）
+          var movedPdf = g.items.filter(function (it) { return it.k === "kbvPdf"; });
+          g.items = g.items.filter(function (it) { return it.k !== "kbvPdf"; });
+          groups.forEach(function (grp) { if (grp.g === "导入与导出") grp.items = grp.items.concat(movedPdf); });
+          // 知识库管理 → 从「设置」移出，并入本组（功能不变）
+          var movedKB = aiSettingItems.filter(function (it) { return it.k === "m:知识库管理"; });
+          aiSettingItems = aiSettingItems.filter(function (it) { return it.k !== "m:知识库管理"; });
+          g.items = g.items.concat(movedKB);
+        }
         groups.push(g);
       });
     }
@@ -4414,29 +4480,29 @@ function orgValOrDefault(b, k) {
 
     add("地图和位置", "➕", "addBld", "添加建筑物（点地图定位）");
 
-    add("数据管理", "📊", "impBld", "批量导入建筑物");
+    add("导入与导出", "📊", "impBld", "批量导入建筑物");
 
-    add("数据管理", "🖼️", "impPhoto", "批量导入照片");
+    add("导入与导出", "🖼️", "impPhoto", "批量导入照片");
 
-    add("数据管理", "📑", "expTable", "导出建筑物表格");
+    add("导入与导出", "📑", "expTable", "导出建筑物表格");
 
-    add("数据管理", "🗂️", "expPhoto", "导出照片（按管理所）");
+    add("导入与导出", "🗂️", "expPhoto", "导出照片（按管理所）");
 
-    add("数据管理", "🧹", "cleanCache", "清理导入缓存（释放空间）");
+    add("数据维护", "🧹", "cleanCache", "清理导入缓存（释放空间）");
 
-    add("数据管理", "🗑️", "delPhotos", "删除添加的照片");
+    add("数据维护", "🗑️", "delPhotos", "删除添加的照片");
 
-    add("传输与共享", "📥", "impKmz", "导入 ovkmz（奥维）");
+    add("导入与导出", "📥", "impKmz", "导入 ovkmz（奥维）");
 
-    add("传输与共享", "📤", "expKmz", "导出 ovkmz（奥维）");
+    add("导入与导出", "📤", "expKmz", "导出 ovkmz（奥维）");
 
-    add("传输与共享", "📍", "impOvobj", "导入 ovobj（奥维坐标）");
+    add("导入与导出", "📍", "impOvobj", "导入 ovobj（奥维坐标）");
 
-    add("传输与共享", "📤", "expOvobj", "导出 ovobj（奥维坐标·实验）");
+    add("导入与导出", "📤", "expOvobj", "导出 ovobj（奥维坐标·实验）");
 
-    add("传输与共享", "📍", "impObj", "导入 obj 坐标（文本）");
+    add("导入与导出", "📍", "impObj", "导入 obj 坐标（文本）");
 
-    add("传输与共享", "📤", "expObj", "导出 obj 坐标（文本）");
+    add("导入与导出", "📤", "expObj", "导出 obj 坐标（文本）");
 
     add("传输与共享", "⚙️", "xferSet", "传输设置（WiFi/网盘/续传）");
 
@@ -4456,6 +4522,10 @@ function orgValOrDefault(b, k) {
 
     add("运行维护", "🛤️", "inspectRoute", "我的巡视路线");
 
+    add("备忘录", "✍️", "noteWrite", "写备忘录");
+
+    add("备忘录", "📒", "noteList", "我的备忘录");
+
     add("设置", "🏢", "orgManage", "组织与类型管理（局/管理处/所/站/段/类型）");
 
     add("设置", "⭐", "favSet", "快捷常用设置");
@@ -4468,7 +4538,7 @@ function orgValOrDefault(b, k) {
 
     add("设置", "🤖", "m:智能AI设置", "智能AI设置");
 
-    add("设置", "📚", "m:知识库管理", "知识库管理");
+    add("知识库与智能", "📚", "m:知识库管理", "知识库管理");
 
     add("设置", "🏚️", "delBld", "删除建筑物");
 
@@ -4758,7 +4828,9 @@ function orgValOrDefault(b, k) {
 
       // v3.45：管理处可多选（按管理范围最粗颗粒先筛），默认京密引水管理处（持久化兜底在 SETTINGS.defaultFilter）
 
-      '<div class="filter-sec"><h4>管理处</h4><div class="chips" id="cGc">' + chips(guanchuOptions(), filters.guanchu, "guanchu") + "</div></div>" +
+      '<div class="filter-sec"><h4>管理处</h4><div class="chips" id="cGc">' + chips(guanchuOptions(), filters.guanchu, "guanchu") + "</div>" +
+
+      '<div style="display:flex;gap:6px;margin-top:6px"><button class="tbtn" onclick="addGuanchu()">＋ 添加</button><button class="tbtn" onclick="renameGuanchu()">✎ 改名</button></div></div>' +
 
       '<div class="filter-sec"><h4>管理所</h4><div class="chips" id="cOff">' + chips(offices, filters.offices, "office") + "</div>" +
 
@@ -5003,6 +5075,66 @@ function orgValOrDefault(b, k) {
   function applyCustomOfficeRename(old, nv) {
 
     var list = getCustomOffices(); var i = list.indexOf(old); if (i >= 0) list[i] = nv; setCustomOffices(list);
+
+  }
+
+  // v3.70：管理处增删改（与「组织与类型管理」同一 orgStore 数据源，改完全局一致）
+
+  window.addGuanchu = function () { promptText("添加管理处", "", function (v) {
+
+    if (!v) { openFilter(); return; }
+
+    v = String(v).trim();
+
+    if (guanchuOptions().indexOf(v) >= 0) { toast("该管理处已存在"); openFilter(); return; }
+
+    var list = getCustomGuanchu(); list.push(v); setCustomGuanchu(list);
+
+    var st = orgStore(); if (st.guanchu.indexOf(v) < 0) st.guanchu.push(v); saveOrgStore(st);
+
+    toast("已添加管理处：" + v); openFilter();
+
+  }); };
+
+  window.renameGuanchu = function () { promptText("改名管理处·原名称", "", function (old) {
+
+    if (!old) { openFilter(); return; }
+
+    old = String(old).trim();
+
+    if (guanchuOptions().indexOf(old) < 0) { toast("未找到该管理处"); openFilter(); return; }
+
+    promptText("改名管理处·新名称（" + old + "）", old, function (nv) {
+
+      if (!nv) { openFilter(); return; }
+
+      nv = String(nv).trim();
+
+      if (old === nv) { openFilter(); return; }
+
+      commitRenameGuanchu(old, nv);
+
+    });
+
+  }); };
+
+  function commitRenameGuanchu(old, nv) {
+
+    var aff = BUILDINGS.filter(function (b) { return (b.guanchu || "") === old; });
+
+    var st = orgStore(); var i = st.guanchu.indexOf(old); if (i >= 0) st.guanchu[i] = nv; else st.guanchu.push(nv); saveOrgStore(st);
+
+    var list = getCustomGuanchu(); var j = list.indexOf(old); if (j >= 0) { list[j] = nv; setCustomGuanchu(list); }
+
+    if (!aff.length) { toast("已改名：" + old + " → " + nv); openFilter(); return; }
+
+    ask("改名将影响建筑物", "将把以下 " + aff.length + " 个建筑物的管理处「" + old + "」改为「" + nv + "」：\n\n" +
+
+      aff.slice(0, 40).map(function (b) { return "· " + b.name; }).join("\n") + (aff.length > 40 ? "\n…（其余略）" : ""),
+
+      [{ t: "确认改名", cls: "btn-confirm2", v: 1 }, { t: "取消", cls: "btn-cancel2", v: 0 }],
+
+      function (ok) { if (ok) { aff.forEach(function (b) { b.guanchu = nv; }); save(); toast("已改名：" + old + " → " + nv); } openFilter(); });
 
   }
 
@@ -9602,6 +9734,13 @@ function orgValOrDefault(b, k) {
 
     { f: "本地向量智能化内核（参数反查 / 统计 / 文档关联 / 报告导出 / PDF转Word / 类型知识库）", a: "✅", i: "✅", w: "✅", u: "✅", n: "kb_vector.js：离线哈希 TF-IDF + 余弦，无需联网" },
 
+    { v: "v3.70", d: "2026-09-11", note: "本版（内部版，与感知 v1.46 / 古建 v3.7.10 同步）：①口令门提示去除具体口令残留（只留「开发者分机号」）；②本地导入/导出不再误报「非WiFi网络」，改为按文件大小智能提示（<100MB 静默、≥100MB 弹「操作提示」）；③管理处组织一致性修复（筛选栏与组织与类型管理同源、可添加/改名、导入别名不再串到管理所）；④菜单重构：新增「导入与导出」「数据维护」「备忘录」三组，知识库管理移出设置并入「知识库与智能」，PDF 转 Word 归入导入与导出（全部菜单与功能一律不删）。", rows: [
+      { f: "口令门提示去掉具体口令（仅提示「开发者分机号」）", a: "✅", i: "✅", w: "✅", u: "✅", n: "secure_boot.js 不再拼接 DEV_EXT 变量" },
+      { f: "本地导入/导出弹窗智能化（本地操作不再报「非WiFi网络」）", a: "✅", i: "✅", w: "✅", u: "✅", n: "<100MB 静默执行；≥100MB 弹「操作提示 / 文件大小…耗时较长，是否继续」" },
+      { f: "管理处一致性（筛选栏 ↔ 组织与类型管理 同源、可增改）", a: "✅", i: "✅", w: "✅", u: "✅", n: "首启补齐 5 个处；筛选栏「管理处」新增 ＋添加 / ✎改名；FIELD_ALIAS 修正" },
+      { f: "菜单重构：导入与导出 / 数据维护 / 备忘录 独立成组", a: "✅", i: "✅", w: "✅", u: "✅", n: "知识库管理移出设置；PDF 转 Word 归入导入与导出；功能与菜单 0 删除" }
+    ]},
+
     { v: "v3.66", d: "2026-09-09", note: "本版（内部版）：水利/感知 内部版新增访问口令保护（默认口令=开发者分机号；记住口令 / 修改口令 / 忘记口令），公开版免密；版本与四平台同步。", rows: [
       { f: "内部版访问口令保护（默认口令=开发者分机号）", a: "✅", i: "✅", w: "✅", u: "✅", n: "首启弹口令门+记住口令选项；设置-修改口令/忘记口令；公开版免密" }
     ],
@@ -10118,7 +10257,7 @@ function orgValOrDefault(b, k) {
 
       var out = window.Android.exportPath(APPNAME + "_照片_all_" + getTodayStr() + ".zip");
 
-      ensureWifi("导出全部照片", function () {
+      confirmLocal("导出全部照片", estPhotosBytes(BUILDINGS.reduce(function (n, b) { return n + ((b.photos && b.photos.length) || 0); }, 0)), function () {
 
         openXferProgress("exportPhotos", "正在导出全部照片…");
 
@@ -10662,7 +10801,11 @@ function orgValOrDefault(b, k) {
 
       } else {
 
-        ensureWifi("导入 ovkmz（可能含大量照片）", doImport);
+        var _isz = 0;
+
+        try { _isz = (window.Android && window.Android.fileSize) ? window.Android.fileSize(path) : 0; } catch (e) {}
+
+        confirmLocal("导入 ovkmz（" + fname + "）", _isz, doImport);
 
       }
 
@@ -11041,7 +11184,11 @@ function orgValOrDefault(b, k) {
 
   var FIELD_ALIAS = {
 
-    office: ["管理单位", "管理处", "单位", "所属单位", "office", "所属管理处"],
+    office: ["管理单位", "单位", "所属单位", "office"],
+
+    guanchu: ["管理处", "所属管理处", "guanchu"],
+
+    ju: ["局", "所属局", "ju"],
 
     station: ["管理站", "station", "所属管理站", "站点"],
 
@@ -11577,7 +11724,7 @@ function orgValOrDefault(b, k) {
 
         var outPath = window.Android.exportPath(fullName);
 
-        ensureWifi("导出 ovkmz（" + scope + "：" + list.length + " 个建筑，" + spec.photos.length + " 张照片）", function () {
+        confirmLocal("导出 ovkmz（" + scope + "：" + list.length + " 个建筑 / " + spec.photos.length + " 张照片）", estPhotosBytes(spec.photos.length), function () {
 
           openXferProgress("export", "正在导出 " + fullName + " …");
 
@@ -12178,7 +12325,7 @@ function orgValOrDefault(b, k) {
 
     pendingExportTarget = target;
 
-    ensureWifi("导出照片（可能超过 3GB）", function () {
+    confirmLocal("导出照片", estPhotosBytes(files.length), function () {
 
       openXferProgress("exportPhotos", "正在导出照片…");
 

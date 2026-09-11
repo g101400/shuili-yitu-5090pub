@@ -209,7 +209,7 @@
       '<button id="secBootBtn">进 入</button>' +
       '<div class="secRow"><input id="secBootSave" type="checkbox" checked /><label for="secBootSave">保存口令，下次不用输入</label></div>' +
       '<div id="secBootTip"></div>' +
-      '<div id="secBootHint">默认口令即开发者分机号 ' + DEV_EXT + ' · 输错无法进入' +
+      '<div id="secBootHint">默认口令即开发者分机号 · 输错无法进入' +
       '<br><span id="secBootForget">忘记口令？点此查看</span></div>' +
       "</div>";
     document.documentElement.appendChild(w);
