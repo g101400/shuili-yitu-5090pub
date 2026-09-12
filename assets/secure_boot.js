@@ -1,11 +1,12 @@
-/* secure_boot.js —— 内部版访问口令门（默认口令 = 开发者分机号 3305）
+/* secure_boot.js —— 内部版访问口令门
  * 版本：v3.66/v1.42 增强版（记住口令选项 + 修改口令 + 忘记口令）
  * 说明：
  *   - 仅「内部版」启用；公开版（奇数/公开通道）自动放行。
  *   - JS 内不含明文口令，只存 salt/iv/密文；口令错误 → AES-GCM 校验失败 → 拒绝进入。
- *   - 首启弹口令门：默认口令即开发者分机号 3305；勾选「记住口令」后本机免输。
- *   - 设置菜单可「修改口令 / 忘记口令」；忘记口令提示联系开发者（分机 3305）。
- *   - 数据加密版 PWA（secure_gate 已用口令解数据）中：口令由部署方固化（3305），
+ *   - 首启弹口令门：口令由开发者掌握、另行告知（不写入源码，也不出现在任何界面文案中）；
+ *     勾选「记住口令」后本机免输。
+ *   - 设置菜单可「修改口令 / 忘记口令」；忘记口令提示联系开发者（开发者分机号）。
+ *   - 数据加密版 PWA（secure_gate 已用口令解数据）中：口令由部署方固化，
  *     本门自动放行、不支持修改（改了口令将无法解密数据）。
  * 依赖 window.__SEC_BOOT（secure_boot_cred.js）。
  */
@@ -14,7 +15,7 @@
   var KEY_SAVED = "secBootSavedN5090";   // "1" = 已记住口令，下次免输
   var KEY_OLD   = "secBootOK5090";       // 旧版已记住标记（兼容）
   var KEY_CRED  = "secBootCredN5090";    // 用户修改后的口令凭证（形状同 __SEC_BOOT）
-  var DEV_EXT   = "3305";                // 开发者分机号：默认口令即此号（仅用于口令比对，禁止出现在任何界面文案中）
+  var DEV_EXT   = (window.__DEV_EXT_5090 || "");  // 开发者分机号：仅由内部构建按需注入；源码不写死、公开构建为空
   var DATA_LOCK = !!(window.__SEC_DATA); // 数据已用口令加密（内部加密 PWA）
 
   function sget(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
@@ -70,7 +71,7 @@
     });
   }
 
-  // 优先用户修改后的凭证，其次默认凭证（3305）
+  // 优先用户修改后的凭证，其次默认凭证
   function unlock(pass) {
     var uc = null;
     try { uc = JSON.parse(sget(KEY_CRED) || "null"); } catch (e) { uc = null; }
@@ -209,7 +210,7 @@
       '<button id="secBootBtn">进 入</button>' +
       '<div class="secRow"><input id="secBootSave" type="checkbox" checked /><label for="secBootSave">保存口令，下次不用输入</label></div>' +
       '<div id="secBootTip"></div>' +
-      '<div id="secBootHint">默认口令即开发者分机号 ' + DEV_EXT + ' · 输错无法进入' +
+      '<div id="secBootHint">默认口令即开发者分机号 · 输错无法进入' +
       '<br><span id="secBootForget">忘记口令？点此查看</span></div>' +
       "</div>";
     document.documentElement.appendChild(w);
@@ -241,6 +242,7 @@
   }
 
   function start() {
+    if (window.__SEC_GATE_OFF) { return; }   // 门闸总开关（古建等产品关闸，仅借凭证做密钥校验）
     if (!CRED) { return; }
     if (!chanInternal()) { return; }
     // 数据加密版：secure_gate 已在本会话用口令解密数据 → 本门自动放行（避免双重口令）
@@ -254,7 +256,9 @@
     isInternal: chanInternal,
     changePass: changePass,
     forgotPass: showForgot,
-    devExt: DEV_EXT
+    devExt: DEV_EXT,
+    // 只读校验入口：供 app.js「密钥二次验证」复用同一加密凭证（源码零明文）
+    verify: function (pass) { return unlock(pass).then(function () { return true; }); }
   };
 
   // 等 app.js 设置好发布通道后再判定
