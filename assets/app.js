@@ -161,9 +161,9 @@
 
   var APPNAME = "水利工程基础信息一张图";
 
-  var APP_VERSION = "3.72";
+  var APP_VERSION = "3.74";
 
-  var APP_BUILD_DATE = "2026-09-11";
+  var APP_BUILD_DATE = "2026-09-13";
 
   // —— 双通道发版（防泄密）：版本末位奇偶决定发布通道 ——
   // 偶数(如 v3.50) = 内部版，保留单位内部数据；奇数(如 v3.49) = 公开/测试版，不含内部数据。
@@ -5631,6 +5631,8 @@ function orgValOrDefault(b, k) {
     var offOpts = offices.slice(); if (offOpts.indexOf(b.office) < 0) offOpts.unshift(b.office || "");
 
     var staOpts = stationOptions().slice(); if (staOpts.indexOf(b.station) < 0) staOpts.unshift(b.station || "");
+    var juOpts = levelOptions("ju").slice(); if (juOpts.indexOf(b.ju) < 0) juOpts.unshift(b.ju || "");
+    var gcOpts = guanchuOptions().slice(); if (gcOpts.indexOf(b.guanchu) < 0) gcOpts.unshift(b.guanchu || "");
 
     $("editBody").innerHTML =
 
@@ -5641,6 +5643,8 @@ function orgValOrDefault(b, k) {
       '<label class="f">管理站</label><select class="f" id="fStation">' + opt(staOpts, b.station) + "</select>" +
 
       '<label class="f">段</label><input class="f" id="fChan" value="' + esc(b.chan) + '">' +
+      '<label class="f">局</label><select class="f" id="fJu">' + opt(juOpts, b.ju || getOrgDefaults().ju) + "</select>" +
+      '<label class="f">管理处</label><select class="f" id="fGuanchu">' + opt(gcOpts, b.guanchu || getOrgDefaults().guanchu) + "</select>" +
 
       '<label class="f">建筑物类型</label><input class="f" id="fType" list="dlType" value="' + esc(b.btype) + '"><datalist id="dlType">' + opt(types, b.btype) + "</datalist>" +
 
@@ -5805,6 +5809,8 @@ function orgValOrDefault(b, k) {
     b.station = $("fStation").value.trim();
 
     b.chan = $("fChan").value.trim();
+    b.ju = $("fJu") ? $("fJu").value.trim() : (b.ju || "");
+    b.guanchu = $("fGuanchu") ? $("fGuanchu").value.trim() : (b.guanchu || "");
 
     b.btype = $("fType").value.trim() || "其他";
 
@@ -11948,8 +11954,8 @@ function orgValOrDefault(b, k) {
       // 结构化属性：内部字段 + 自定义属性，保证导回无损
 
       var ext = dataEl("管理单位", normOffice(b.office)) + dataEl("管理站", b.station) +
-
-                dataEl("渠道", b.chan) + dataEl("建筑物类型", b.btype);
+                dataEl("渠道", b.chan) + dataEl("建筑物类型", b.btype) +
+                dataEl("局", b.ju || "") + dataEl("管理处", b.guanchu || "");
 
       (b.attrs || []).forEach(function (a) { if (a[0]) ext += dataEl(a[0], a[1]); });
 
@@ -12495,6 +12501,7 @@ function orgValOrDefault(b, k) {
       // v3.45：管理处列放在「名称」后面，默认不勾选（保持原有列顺序 + 配置兼容）
 
       { k: "guanchu", t: "管理处", checked: false },
+      { k: "ju", t: "局", checked: false },
 
       { k: "office", t: "管理所", checked: true }, { k: "station", t: "管理站", checked: true },
 
@@ -12638,7 +12645,7 @@ function orgValOrDefault(b, k) {
 
     var offsNorm = offs.map(function (o) { return o ? (normOffice(o) || o) : ""; });
 
-    var labelMap = { name: "名称", guanchu: "管理处", office: "管理所", station: "管理站", chan: "段", btype: "建筑物类型", lat: "纬度", lon: "经度", params: "comment", inspect: "巡视次数" };
+    var labelMap = { name: "名称", ju: "局", guanchu: "管理处", office: "管理所", station: "管理站", chan: "段", btype: "建筑物类型", lat: "纬度", lon: "经度", params: "comment", inspect: "巡视次数" };
 
     var attrCols = cols.filter(function (c) { return c.indexOf("attr:") === 0; }).map(function (c) { return c.slice(5); });
 
