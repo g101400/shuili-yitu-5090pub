@@ -1,4 +1,4 @@
-/* ===== v3.62 防「运行错误:script error」全局兜底（勿删）=====
+﻿/* ===== v3.62 防「运行错误:script error」全局兜底（勿删）=====
    历史版本/动态注入模块可能裸引用收藏与隐藏菜单的读写函数，一旦某个分支未定义，
    ReferenceError 会被 window.onerror 捕获成「运行错误:script error」并中断菜单渲染。
    这里统一补齐为基于 localStorage 的安全实现，缺失时静默降级。 */
@@ -200,7 +200,7 @@
 
   //   水利→水库所；感知→水库所；古建→北京市（各自 app.js 内定义本常量）
 
-  var DEFAULT_FILTER_SEED = { offices: ["水库所"], stations: [], types: [], photoStatus: "all", photoMin: 3, text: "" };
+  var DEFAULT_FILTER_SEED = { offices: ["水库所"], stations: [], types: ["节制闸","泄洪闸","进水闸","溢洪道","倒虹吸"], invertTypes: false, photoStatus: "all", photoMin: 3, text: "" };
 
   function cloneSeed(s) { var o = {}; Object.keys(s).forEach(function (k) { o[k] = Array.isArray(s[k]) ? s[k].slice() : s[k]; }); return o; }
 
@@ -280,7 +280,7 @@
 
   var editing = null;
 
-  var filters = { guanchu: new Set(["京密引水管理处"]), offices: new Set(), stations: new Set(), types: new Set(), photoStatus: "all", photoMin: 3, text: "" };
+  var filters = { guanchu: new Set(["京密引水管理处"]), offices: new Set(), stations: new Set(), types: new Set(["节制闸","泄洪闸","进水闸","溢洪道","倒虹吸"]), invertTypes: false, photoStatus: "all", photoMin: 3, text: "" };
 
   var pendingExportTarget = null; // 照片导出目标：local / baidu / quark / wechat / feishu / qq
 
@@ -2456,7 +2456,11 @@ function orgValOrDefault(b, k) {
 
     if (filters.stations.size && !filters.stations.has(b.station || "")) return false;
 
-    if (filters.types.size && !filters.types.has(b.btype)) return false;
+    // Req 6：反选模式——勾选的类型被排除，显示其余类型
+    if (filters.types.size) {
+      var _inSel = filters.types.has(b.btype);
+      if (filters.invertTypes ? _inSel : !_inSel) return false;
+    }
 
     // Req 1：照片状态筛选：有照片 / 多张照片 / 无照片
 
@@ -2524,7 +2528,7 @@ function orgValOrDefault(b, k) {
 
     if (filters.stations.size) parts.push("管理站：" + Array.from(filters.stations).map(function (s) { return s || "(未设置)"; }).join("、"));
 
-    if (filters.types.size) parts.push("类型：" + Array.from(filters.types).join("、"));
+    if (filters.types.size) parts.push((filters.invertTypes ? "类型(反选)：" : "类型：") + Array.from(filters.types).join("、"));
 
     if (filters.photoStatus === "has") parts.push("有照片");
 
@@ -4781,9 +4785,11 @@ function orgValOrDefault(b, k) {
 
       if (filters.types.size) {
 
+        var _tlabel = filters.invertTypes ? "类型(排除)" : "类型";
+
         Array.from(filters.types).forEach(function (v) {
 
-          tags.push('<span class="fc-tag"><span class="fc-k">类型</span>' + esc(v || "其他") + "</span>");
+          tags.push('<span class="fc-tag"><span class="fc-k">' + _tlabel + '</span>' + esc(v || "其他") + "</span>");
 
         });
 
@@ -4849,7 +4855,11 @@ function orgValOrDefault(b, k) {
 
       '<div style="display:flex;gap:6px;margin-top:6px"><button class="tbtn" onclick="addStation()">＋ 添加</button><button class="tbtn" onclick="renameStation()">✎ 改名</button></div></div>' +
 
-      '<div class="filter-sec"><h4>建筑物类型</h4><div class="chips" id="cTyp">' + chips(types, filters.types, "type") + "</div></div>" +
+      '<div class="filter-sec"><h4>建筑物类型' +
+        ' <button class="tbtn" id="btnInvertType" onclick="toggleInvertTypes()">' + (filters.invertTypes ? "✅ 已反选" : "⇄ 反选") + '</button></h4>' +
+        '<div class="chips" id="cTyp">' + chips(types, filters.types, "type") + "</div>" +
+        '<div id="typeInvertHint" style="font-size:12px;color:var(--muted);margin-top:5px;' + (filters.invertTypes ? "" : "display:none") + '>反选已开启：勾选的类型将被排除，地图只显示其余类型。</div>' +
+      "</div>" +
 
       '<div class="filter-sec"><h4>照片状态</h4><div class="chips" id="cPh">' + photoChips() + "</div></div>" +
 
@@ -4917,6 +4927,18 @@ function orgValOrDefault(b, k) {
 
   }
 
+  window.toggleInvertTypes = function () {
+
+    filters.invertTypes = !filters.invertTypes;
+
+    var btn = $("btnInvertType"); if (btn) btn.textContent = filters.invertTypes ? "✅ 已反选" : "⇄ 反选";
+
+    var hint = $("typeInvertHint"); if (hint) hint.style.display = filters.invertTypes ? "" : "none";
+
+    saveDefaultFilter(); scheduleRender(); updateFilterCount();
+
+  };
+
   window.appFilterClearText = function () {
 
     filters.text = "";
@@ -4938,6 +4960,7 @@ function orgValOrDefault(b, k) {
     filters.offices.clear(); filters.stations.clear(); filters.types.clear();
 
     filters.photoStatus = "all";
+    filters.invertTypes = false;
 
     filters.text = "";
 
@@ -4946,6 +4969,8 @@ function orgValOrDefault(b, k) {
     var sb = $("search"); if (sb) sb.value = "";
 
     $("genBody").querySelectorAll(".chip").forEach(function (c) { c.classList.remove("on"); });
+    var _bi = $("btnInvertType"); if (_bi) _bi.textContent = "⇄ 反选";
+    var _hi = $("typeInvertHint"); if (_hi) _hi.style.display = "none";
 
     // 照片状态回到"全部"需要让对应 chip 重新高亮
 
