@@ -200,7 +200,7 @@
 
   //   水利→水库所；感知→水库所；古建→北京市（各自 app.js 内定义本常量）
 
-  var DEFAULT_FILTER_SEED = { offices: ["水库所"], stations: [], types: ["节制闸","泄洪闸","进水闸","溢洪道","倒虹吸"], invertTypes: false, photoStatus: "all", photoMin: 3, text: "" };
+  var DEFAULT_FILTER_SEED = { offices: ["水库所"], stations: [], types: ["节制闸","泄洪闸","进水闸","溢洪道","倒虹吸"], invertTypes: false, attrs: [], photoStatus: "all", photoMin: 3, text: "" };
 
   function cloneSeed(s) { var o = {}; Object.keys(s).forEach(function (k) { o[k] = Array.isArray(s[k]) ? s[k].slice() : s[k]; }); return o; }
 
@@ -280,7 +280,7 @@
 
   var editing = null;
 
-  var filters = { guanchu: new Set(["京密引水管理处"]), offices: new Set(), stations: new Set(), types: new Set(["节制闸","泄洪闸","进水闸","溢洪道","倒虹吸"]), invertTypes: false, photoStatus: "all", photoMin: 3, text: "" };
+  var filters = { guanchu: new Set(["京密引水管理处"]), offices: new Set(), stations: new Set(), types: new Set(["节制闸","泄洪闸","进水闸","溢洪道","倒虹吸"]), invertTypes: false, attrs: new Set(), photoStatus: "all", photoMin: 3, text: "" };
 
   var pendingExportTarget = null; // 照片导出目标：local / baidu / quark / wechat / feishu / qq
 
@@ -2488,6 +2488,17 @@ function orgValOrDefault(b, k) {
 
     }
 
+    // 智能推荐（晚3）：属性结构化条件（dim\u0001val 集合，AND 语义）
+    if (filters.attrs && filters.attrs.size) {
+      var _sattrs = b.attrs || [];
+      var _okAttr = true;
+      filters.attrs.forEach(function (pair) {
+        var _x = pair.split("\u0001"); var _d = _x[0], _v = _x[1];
+        if (!_sattrs.some(function (a) { return a && a[0] === _d && String(a[1]) === _v; })) _okAttr = false;
+      });
+      if (!_okAttr) return false;
+    }
+
     return true;
 
   }
@@ -2500,7 +2511,7 @@ function orgValOrDefault(b, k) {
 
   function filterActive() {
 
-    return !!(filters.guanchu.size || filters.offices.size || filters.stations.size || filters.types.size ||
+    return !!(filters.guanchu.size || filters.offices.size || filters.stations.size || filters.types.size || filters.attrs.size ||
 
       (filters.photoStatus && filters.photoStatus !== "all") || filters.text);
 
@@ -2529,6 +2540,8 @@ function orgValOrDefault(b, k) {
     if (filters.stations.size) parts.push("管理站：" + Array.from(filters.stations).map(function (s) { return s || "(未设置)"; }).join("、"));
 
     if (filters.types.size) parts.push((filters.invertTypes ? "类型(反选)：" : "类型：") + Array.from(filters.types).join("、"));
+
+    if (filters.attrs.size) parts.push("属性：" + Array.from(filters.attrs).map(function (p) { return p.split("\u0001").join("="); }).join("、"));
 
     if (filters.photoStatus === "has") parts.push("有照片");
 
@@ -4957,7 +4970,7 @@ function orgValOrDefault(b, k) {
 
   window.appClearFilter = function () {
 
-    filters.offices.clear(); filters.stations.clear(); filters.types.clear();
+    filters.offices.clear(); filters.stations.clear(); filters.types.clear(); filters.attrs.clear();
 
     filters.photoStatus = "all";
     filters.invertTypes = false;
@@ -5493,16 +5506,17 @@ function orgValOrDefault(b, k) {
     if (arr.length > 8) arr = arr.slice(0, 8);
     if (!arr.length) return;
     var hint = document.createElement("div"); hint.className = "qf-hint";
-    hint.innerHTML = "💡 进一步查询（智能推荐）：<b>单击</b>复制组合关键词，<b>双击</b>直接进一步查询。";
+    hint.innerHTML = "💡 智能推荐：<b>单击/双击</b>在「" + esc(kw || "") + "」基础上追加该条件并进一步查询（显示对应个数）。";
     box.appendChild(hint);
     var wrap = document.createElement("div"); wrap.className = "qf-chips";
     arr.forEach(function (d) {
       var q = (kw ? kw + " " : "") + d.val;
       var c = document.createElement("span"); c.className = "qf-chip";
       c.innerHTML = '<span class="qf-dim">' + esc(d.dim) + "</span>" + esc(d.val) + '<span class="n">' + d.n + "</span>";
-      c.title = "单击复制查询「" + q + "」；双击直接进一步查询";
-      c.addEventListener("click", function () { copyText(q); toast("已复制查询关键词：「" + q + "」（粘贴到查询框按确定即可查询）"); });
-      c.addEventListener("dblclick", function (e) { e.preventDefault(); window.furtherQuery(q); });
+      var _readable = (kw ? kw + " " : "") + d.dim + "：" + d.val;
+      c.title = "单击/双击：追加条件「" + _readable + "」并进一步查询（显示 " + d.n + " 个）";
+      c.addEventListener("click", function () { window.addFurtherDim(d.dim, d.val); copyText(_readable); hideSmartRecBox(); window.furtherQueryRequery(); });
+      c.addEventListener("dblclick", function (e) { e.preventDefault(); window.addFurtherDim(d.dim, d.val); hideSmartRecBox(); window.furtherQueryRequery(); });
       wrap.appendChild(c);
     });
     box.appendChild(wrap);
@@ -5514,6 +5528,40 @@ function orgValOrDefault(b, k) {
     s.textContent = '.qf-box{margin-top:8px}.qf-hint{font-size:12px;color:#888;margin:4px 0 6px;line-height:1.5}.qf-chips{display:flex;flex-wrap:wrap;gap:6px}.qf-chip{cursor:pointer;user-select:none;padding:5px 10px;border:1px solid var(--border,rgba(0,0,0,.15));border-radius:14px;background:rgba(33,150,243,.08);font-size:13px;transition:background .15s}.qf-chip:hover{background:rgba(33,150,243,.18)}.qf-chip .n{color:#1976d2;font-weight:600;margin-left:4px}.qf-dim{opacity:.7;margin-right:2px}';
     (document.head || document.documentElement).appendChild(s);
   })();
+  /* 晚3：智能推荐结构化追加条件（与 passFilter 同源，确保 显示数 = 重查数） */
+  window.addFurtherDim = function (dim, val) {
+    if (!val) return;
+    val = String(val);
+    if (dim === "管理单位") filters.offices.add(normOffice(val));
+    else if (dim === "管理站") filters.stations.add(val);
+    else if (dim === "类型") filters.types.add(val);
+    else filters.attrs.add(dim + "\u0001" + val);
+    saveDefaultFilter();
+  };
+  // 晚2：顶栏「💡 智能推荐(N)」按钮显隐与展开
+  function showSmartRecButton(n) {
+    var b = $("btnSmartRec"); if (!b) return;
+    b.textContent = "💡 智能推荐(" + n + ")";
+    b.style.display = "";
+    hideSmartRecBox();
+  }
+  function hideSmartRecButton() {
+    var b = $("btnSmartRec"); if (b) b.style.display = "none";
+    hideSmartRecBox();
+  }
+  function hideSmartRecBox() {
+    var box = $("queryFurther"); if (box && box.parentNode) box.parentNode.removeChild(box);
+  }
+  window.toggleSmartRec = function () {
+    if ($("queryFurther")) { hideSmartRecBox(); return; }
+    if (window._smartRec) renderQueryFurther(window._smartRec.matched, window._smartRec.kw);
+  };
+  // 在当前筛选基础上重查（保留已追加的结构化条件）
+  window.furtherQueryRequery = function () {
+    if (typeof window.doQueryConfirm === "function") window.doQueryConfirm();
+    else if (typeof window.applyFilterAndJump === "function") window.applyFilterAndJump();
+  };
+
   window.doQueryConfirm = function () {
 
     var sb = $("search");
@@ -5548,6 +5596,8 @@ function orgValOrDefault(b, k) {
 
         function () { if (sb) { sb.focus(); sb.select(); } });
 
+      hideSmartRecButton();
+
       return;   // 保留关键词与搜索框，便于就地修改
 
     }
@@ -5570,7 +5620,13 @@ function orgValOrDefault(b, k) {
 
     }
 
-    renderQueryFurther(matched, kw);  // v3.48：命中多结果时给出进一步查询建议
+    // 晚2：智能推荐不再自动弹出，改为顶栏「💡 智能推荐(N)」按钮，点击才展开
+    if (matched.length > 1) {
+      window._smartRec = { matched: matched, kw: kw };
+      showSmartRecButton(matched.length);
+    } else {
+      hideSmartRecButton();
+    }
   };
 
 
