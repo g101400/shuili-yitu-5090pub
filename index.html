@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
@@ -297,16 +297,17 @@
     <input id="search" placeholder="搜索名称/类型/备注…" />
     <button class="tbtn qf" id="btnQuery">🔍 查询</button>
     <button class="tbtn qf" id="btnFilter">🎚️ 筛选</button>
+    <button class="tbtn qf" id="btnSmartRec" style="display:none" onclick="window.toggleSmartRec()">💡 智能推荐</button>
     <button class="tbtn" id="btnMenu">☰ 菜单</button>
     <span id="count"></span>
   </div>
   <div id="map"></div>
-  <!-- 自定义地图操作控件：放大 / 缩小 / 收藏窗口 / 放回收藏窗口 -->
+  <!-- 自定义地图操作控件：放大 / 缩小 / 收藏窗口 / 返回收藏窗口 -->
   <div id="mapCtrl">
     <button class="mctrl" id="btnZoomIn" title="放大">＋</button>
     <button class="mctrl" id="btnZoomOut" title="缩小">－</button>
     <button class="mctrl" id="btnBookmark" title="收藏窗口（记录当前视窗四角）">☆</button>
-    <button class="mctrl" id="btnGotoBookmark" title="放回收藏窗口">⌂</button>
+    <button class="mctrl" id="btnGotoBookmark" title="返回收藏窗口">⌂</button>
   </div>
   <div id="listView"></div>
 </div>

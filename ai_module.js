@@ -1811,6 +1811,7 @@
           '<div style="margin-top:8px;font-size:11px;color:#aab4be">📋 缓存于 ' + esc(h.ts) + " · " + (h.mode === "online" ? "🌐 联网" : "🔒 本地") + "</div>" +
           '<div class="form-actions"><button class="btn-cancel" id="qForce">🔄 强制重新查询</button></div>';
         q("qSaveKB").onclick = function () { saveQueryToKB(h.q, h.out); };
+        var _er = q("qExportRpt"); if (_er) _er.onclick = function () { exportQueryReport(h.q, h.out); };
         q("qNoSave").onclick = function () { var a = q("qOut").querySelector(".kb-actions"); if (a) a.remove(); toast("未保存知识库"); };
         q("qForce").onclick = function () { runQuery(); };
       };
@@ -1841,9 +1842,28 @@
     var body = '<div class="md-body" style="background:var(--soft);border-radius:10px;padding:12px;font-size:13px;line-height:1.7;color:#3a2e28">' + md2html(txt) + "</div>";
     var actions = '<div class="kb-actions" style="display:flex;gap:8px;margin-top:10px">' +
       '<button class="btn-save" style="flex:1" id="qSaveKB">💾 保存知识库（精简）</button>' +
+      '<button class="btn-save" style="flex:1" id="qExportRpt">📄 导出报告</button>' +
       '<button class="btn-cancel" style="flex:1" id="qNoSave">✕ 不保存</button></div>';
     return body + actions;
   }
+  // D-6：查询报告导出（Markdown 下载），闭环的「报告」环节
+  function downloadText(fn, text) {
+    try {
+      var blob = new Blob([String(text || "")], { type: "text/markdown;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a"); a.href = url; a.download = fn;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 1000);
+    } catch (e) { toast("导出失败：" + ((e && e.message) || e)); }
+  }
+  function exportQueryReport(qtext, txt) {
+    var md = (global.KBCore && global.KBCore.buildReport)
+      ? global.KBCore.buildReport(qtext, txt, { source: "智能查询", title: "智能查询报告 · " + String(qtext || "").slice(0, 20) })
+      : ("# 查询报告\n\n## 查询\n" + (qtext || "") + "\n\n## 答案\n" + (txt || ""));
+    downloadText("智能查询报告_" + new Date().toISOString().slice(0, 10) + ".md", md);
+    toast("已导出 Markdown 报告");
+  }
+  window.exportQueryReport = exportQueryReport;
   // 保存查询结果为知识库条目（正文尽可能精简，可点「自动精简」或手动删减）
   function saveQueryToKB(qtext, rawText) {
     var html = '<p style="font-size:13px;color:#3a2e28">保存进知识库将长期占用空间，建议精简。可点「自动精简」压缩，或手动删减后保存。</p>' +
@@ -1954,5 +1974,15 @@
   // v3.47：把知识库入口挂到 window，供内联 onclick 调用（修复 openKB/openGen is not defined）
   window.openKB = openKB;
   window.openGen = openGen;
+  // D-1：暴露 KB 混合检索与条目查看，供宿主 app.js 智能推荐复用（替代 app.js 内孤立文本匹配）
+  window.kbHybridSearch = kbHybridSearch;
+  window.kbViewDocById = function (id) {
+    try {
+      var k = kbGet(id);
+      if (!k || !k.meta) { toast("未找到该知识库条目"); return; }
+      openGen("知识库条目", kbViewHtml(k));
+      var _b = q("kbBack"); if (_b) _b.onclick = openSmartQuery;
+    } catch (e) {}
+  };
 
 })(typeof window !== "undefined" ? window : this);

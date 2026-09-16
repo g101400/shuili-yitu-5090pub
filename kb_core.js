@@ -401,6 +401,7 @@
       var r = doubtReverse(t);
       var src = (r.sources || []).map(function (s) {
         return '<div style="padding:6px 0;border-bottom:1px solid #eef2f7"><b>' + esc(s.title || "片段") + '</b>' +
+          (s.conf != null ? ' <small style="color:#b8860b">· 置信度' + Math.round(s.conf * 100) + '%</small>' : "") +
           (s.text ? '<div style="color:#666">' + esc(snippet(s.text, 120)) + '</div>' : "") + '</div>';
       }).join("") || '<div style="color:#999">未找到明确来源（可能为用户新增或未入库内容）</div>';
       var cf = (r.conflicts || []).map(function (c) {
@@ -470,12 +471,79 @@
     }];
   }
 
+  /* ---------------- D-5：多源冲突裁决 ---------------- */
+  // 来源置信度（人工修订最高，Hermes 自学习次之，网页/OCR 较低）
+  var SOURCE_CONF = {
+    "人工": 1.0, "人工修订": 1.0, "manual": 1.0, "复核": 0.95,
+    "hermes": 0.85, "Hermes自动学习": 0.85, "operation": 0.8,
+    "网页": 0.7, "web": 0.7, "external": 0.7, "外部": 0.7,
+    "OCR": 0.55, "ocr": 0.55
+  };
+  function sourceConfidence(src) {
+    var s = String(src || "").trim();
+    if (SOURCE_CONF[s] != null) return SOURCE_CONF[s];
+    var low = s.toLowerCase();
+    for (var k in SOURCE_CONF) { if (k.toLowerCase() === low) return SOURCE_CONF[k]; }
+    return 0.6; // 未知来源默认中等偏低
+  }
+  // 冲突裁决：返回胜出记录 + 是否冲突 + 说明（人工修订 > Hermes > 网页 > OCR；同置信度取新入，同人工保留并提示）
+  function resolveConflict(existing, incoming) {
+    var e = existing || {}, n = incoming || {};
+    var ce = sourceConfidence(e.source), cn = sourceConfidence(n.source);
+    var out = { winner: n, conflict: false, note: "", kept: "incoming" };
+    if (!e || !e.id) return out;
+    if (ce === cn) {
+      if (ce >= 0.95) { out.winner = e; out.kept = "existing"; out.conflict = true; out.note = "均为高置信人工修订，保留既有条目，新值作存疑提示"; }
+      return out;
+    }
+    if (cn > ce) { out.conflict = ce >= 0.55; out.note = "新来源置信度更高（" + cn.toFixed(2) + " > " + ce.toFixed(2) + "），采用新值"; }
+    else { out.winner = e; out.kept = "existing"; out.conflict = cn >= 0.55; out.note = "既有来源置信度更高（" + ce.toFixed(2) + " > " + cn.toFixed(2) + "），保留既有，新值作冲突提示"; }
+    return out;
+  }
+
+  /* ---------------- D-6：query→推荐→报告→KB 闭环 ---------------- */
+  // 把一次问答/推荐结果组装为可归档报告（Markdown）
+  function buildReport(question, answer, meta) {
+    meta = meta || {};
+    var lines = [];
+    lines.push("# " + (meta.title || "智能查询报告"));
+    lines.push("");
+    lines.push("> 生成时间：" + new Date().toLocaleString("zh-CN") + (meta.source ? "　|　来源：" + meta.source : ""));
+    lines.push("");
+    lines.push("## 查询");
+    lines.push("");
+    lines.push((question || "") + "");
+    lines.push("");
+    lines.push("## 结论 / 答案");
+    lines.push("");
+    lines.push((answer || "") + "");
+    lines.push("");
+    lines.push("## 引用与建议");
+    lines.push("");
+    (meta.refs && meta.refs.length ? meta.refs : ["（详见知识库原文与存疑反向查询）"]).forEach(function (r) { lines.push("- " + r); });
+    lines.push("");
+    return lines.join("\n");
+  }
+  // 闭环写回：把问答结果沉淀进知识库（operation 类型，可被后续检索引用）
+  function writeBackKB(question, answer, meta) {
+    var A = ai();
+    if (!A || typeof A.kbAdd !== "function") return null;
+    meta = meta || {};
+    var id = "loop_" + Date.now();
+    try {
+      A.kbAdd({ id: id, title: (meta.title || ("问答：" + String(question || "").slice(0, 20))), body: buildReport(question, answer, meta), type: "operation", source: meta.source || "智能闭环" });
+    } catch (e) { return null; }
+    return id;
+  }
+
   global.KBCore = {
     getMenuGroups: getMenuGroups,
     fuzzySearch: fuzzySearch,
     buildPrompt: buildPrompt,
     promptTemplates: TPL,
     doubtReverse: doubtReverse,
+    sourceConfidence: sourceConfidence, resolveConflict: resolveConflict, SOURCE_CONF: SOURCE_CONF,
+    buildReport: buildReport, writeBackKB: writeBackKB,
     smartAsk: smartAsk,
     pingOnline: pingOnline,
     forceOnline: forceOnline,

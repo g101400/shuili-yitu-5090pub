@@ -148,8 +148,14 @@
   }
 
   /* ① 参数/自然语言 → 条目名称（反查） */
+  function _normOp(op) {
+    if (/^(大于|超过|高于|>=|≥|>)$/.test(op)) return ">";
+    if (/^(小于|低于|<=|≤|<)$/.test(op)) return "<";
+    return "=";
+  }
   function scoreItem(qv, qn, qnums, it) {
     var base = cos(qv, it.vec), best = null, bs = -1, extra = 0;
+    var condMatched = 0, condSat = 0;
     for (var i = 0; i < it.attrs.length; i++) {
       var av = String(it.attrs[i][1] == null ? "" : it.attrs[i][1]);
       var s = cos(qv, vecOf(it.attrs[i][0] + "：" + av));
@@ -157,12 +163,31 @@
       if (av && av.length < 24 && qn.indexOf(av) >= 0) s += 0.45;
       for (var n = 0; n < qnums.length; n++) if (av.indexOf(qnums[n]) >= 0) s += 0.16;
       if (s > bs) { bs = s; best = it.attrs[i]; }
+      // D-2：属性结构化条件（数值等值/范围）融合——查询含「dim op 数」时校验本项属性
+      var dim = it.attrs[i][0];
+      if (dim) {
+        var m = qn.match(new RegExp(dim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*(大于|超过|高于|小于|低于|等于|为|是|>=|<=|≥|≤|>|<|=)\\s*(\\d+(?:\\.\\d+)?)"));
+        if (m) {
+          condMatched++;
+          var op = _normOp(m[1]), qv2 = parseFloat(m[2]), avn = parseFloat(av);
+          var ok = false;
+          if (op === ">") ok = (!isNaN(avn) && avn > qv2);
+          else if (op === "<") ok = (!isNaN(avn) && avn < qv2);
+          else ok = (String(av) === m[2] || (!isNaN(avn) && avn === qv2));
+          if (ok) condSat++;
+        }
+      }
     }
     if (it.name && qn.indexOf(it.name) >= 0) extra += 0.55;
     if (it.type && qn.indexOf(it.type) >= 0) extra += 0.30;
     if (it.office && qn.indexOf(it.office) >= 0) extra += 0.15;
     var hit = (bs > 0 ? bs : 0);
     var total = base * 0.55 + hit * 0.45 + extra;
+    // D-2：满足全部提及的属性条件时，把结构化分数融合进向量召回（不满足则零影响，向后兼容）
+    if (condMatched > 0 && condSat > 0) {
+      var attrScore = condSat / condMatched;
+      total = Math.min(0.99, total + 0.6 * attrScore + (condSat === condMatched ? 0.1 : 0));
+    }
     return { it: it, score: Math.min(0.99, total), best: best };
   }
   function reverseSearch(q, k) {
