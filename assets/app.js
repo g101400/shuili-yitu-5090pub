@@ -1,14 +1,51 @@
-﻿/* ===== v3.62 防「运行错误:script error」全局兜底（勿删）=====
+﻿/* ===== v3.62 防「运行错误:script error」全局兜底（勿删）+ C-2/3 集中共享状态层 =====
    历史版本/动态注入模块可能裸引用收藏与隐藏菜单的读写函数，一旦某个分支未定义，
    ReferenceError 会被 window.onerror 捕获成「运行错误:script error」并中断菜单渲染。
-   这里统一补齐为基于 localStorage 的安全实现，缺失时静默降级。 */
+   这里统一补齐为基于 localStorage 的安全实现，缺失时静默降级。
+
+   C-2/3（照片·收藏·隐藏跨浏览器共享）：所有共享状态经 SharedStore 统一读写（JSON 形态），
+   默认落 localStorage；若运行环境提供 window.fs（WebView 文件系统），额外镜像到公共目录
+   shared_state.json 并在启动时异步拉取，实现「跨浏览器/跨壳」共享。window.fs 不可用时
+   静默降级为 localStorage，与旧行为完全一致。 */
 (function () {
-  function _read(key) { try { var v = JSON.parse(localStorage.getItem(key) || "[]"); return v && v.length !== undefined ? v : []; } catch (e) { return []; } }
-  function _write(key, v) { try { localStorage.setItem(key, JSON.stringify(v || [])); } catch (e) {} }
+  var SHARED_KEYS = ["favMenus", "hiddenMenus", "photoMeta"];
+  var SHARED_FILE = "shared_state.json";
+
+  function _lsRead(key) { try { var v = JSON.parse(localStorage.getItem(key) || "[]"); return v && v.length !== undefined ? v : []; } catch (e) { return []; } }
+  function _lsWrite(key, v) { try { localStorage.setItem(key, JSON.stringify(v || [])); } catch (e) {} }
+
+  function _fsReady() { return !!(window.fs && typeof window.fs.writeFile === "function" && typeof window.fs.readFile === "function"); }
+  function _fsMirror() {
+    if (!_fsReady()) return;
+    try {
+      var obj = {};
+      for (var i = 0; i < SHARED_KEYS.length; i++) { var k = SHARED_KEYS[i]; obj[k] = _lsRead(k); }
+      window.fs.writeFile(SHARED_FILE, JSON.stringify(obj), function () {}, function () {});
+    } catch (e) {}
+  }
+  function _fsPull() {
+    if (!_fsReady()) return;
+    try {
+      window.fs.readFile(SHARED_FILE, function (txt) {
+        try {
+          var obj = JSON.parse(txt || "{}");
+          for (var k in obj) { if (SHARED_KEYS.indexOf(k) >= 0 && obj[k] && obj[k].length !== undefined) _lsWrite(k, obj[k]); }
+        } catch (e2) {}
+      }, function () {});
+    } catch (e) {}
+  }
+
+  function _read(key) { return _lsRead(key); }
+  function _write(key, v) { _lsWrite(key, v); if (SHARED_KEYS.indexOf(key) >= 0) _fsMirror(); }
+
   if (typeof window.getFavMenus !== "function") window.getFavMenus = function () { return _read("favMenus"); };
   if (typeof window.setFavMenus !== "function") window.setFavMenus = function (v) { _write("favMenus", v); };
   if (typeof window.getHiddenMenus !== "function") window.getHiddenMenus = function () { return _read("hiddenMenus"); };
   if (typeof window.setHiddenMenus !== "function") window.setHiddenMenus = function (v) { _write("hiddenMenus", v); };
+
+  // 启动即拉取跨浏览器共享状态；window.fs 在 deviceready 后才可用时延迟到该事件
+  if (_fsReady()) _fsPull();
+  else if (typeof document !== "undefined" && document.addEventListener) document.addEventListener("deviceready", function () { _fsPull(); }, false);
 })();
 
 /* 水利工程基础信息一张图 — 离线 WebView 应用逻辑 */
@@ -161,9 +198,9 @@
 
   var APPNAME = "水利工程基础信息一张图";
 
-  var APP_VERSION = "3.74";
+  var APP_VERSION = "3.76";
 
-  var APP_BUILD_DATE = "2026-09-13";
+  var APP_BUILD_DATE = "2026-09-16";
 
   // —— 双通道发版（防泄密）：版本末位奇偶决定发布通道 ——
   // 偶数(如 v3.50) = 内部版，保留单位内部数据；奇数(如 v3.49) = 公开/测试版，不含内部数据。
@@ -5495,7 +5532,7 @@ function orgValOrDefault(b, k) {
     box.innerHTML = "";
     if (!matched || !matched.length) return;
     var dims = {};
-    function bump(dim, val) { if (!val) return; val = String(val); if (kw && val.indexOf(kw) >= 0) return; var k = dim + "\u0001" + val; if (!dims[k]) dims[k] = { dim: dim, val: val, n: 0 }; dims[k].n++; }
+    function bump(dim, val) { if (!val) return; val = String(val); if (kw && val === kw) return; var k = dim + "\u0001" + val; if (!dims[k]) dims[k] = { dim: dim, val: val, n: 0 }; dims[k].n++; }
     matched.forEach(function (b) {
       bump("管理单位", b.office); bump("管理站", b.station); bump("类型", b.btype);
       bump("省份", b.province); bump("城市", b.city); bump("类别", b.type); bump("年代", b.dynasty); bump("级别", b.level);
@@ -5520,6 +5557,26 @@ function orgValOrDefault(b, k) {
       wrap.appendChild(c);
     });
     box.appendChild(wrap);
+    // D-1：复用 KBRag/kbHybridSearch 追加「知识库相关」推荐（替代纯本地文本聚合）
+    try {
+      if (window.kbHybridSearch && window.KBRag && window.KBRag.stats().chunks > 0 && kw) {
+        var kbHits = window.kbHybridSearch(kw, 4);
+        if (kbHits && kbHits.length) {
+          var kh = document.createElement("div"); kh.className = "qf-hint";
+          kh.innerHTML = "📚 知识库相关（来自 RAG 混合检索）：";
+          box.appendChild(kh);
+          var kw2 = document.createElement("div"); kw2.className = "qf-chips";
+          kbHits.slice(0, 4).forEach(function (h) {
+            var c = document.createElement("span"); c.className = "qf-chip";
+            c.innerHTML = '<span class="qf-dim">📄</span>' + esc((h.title || "").slice(0, 16)) + '<span class="n">' + (h.score != null ? h.score.toFixed(2) : "") + "</span>";
+            c.title = "查看知识库条目：" + (h.title || "");
+            c.addEventListener("click", function () { if (window.kbViewDocById) window.kbViewDocById(h.id); else toast("知识库未加载"); hideSmartRecBox(); });
+            kw2.appendChild(c);
+          });
+          box.appendChild(kw2);
+        }
+      }
+    } catch (e) {}
   }
   /* v3.48 智能查询后续操作：样式运行时注入（幂等） */
   (function () {
@@ -12972,11 +13029,17 @@ function orgValOrDefault(b, k) {
 
     var list = getBookmarks();
 
-    list.push({ sw: [sw.lat, sw.lng], ne: [ne.lat, ne.lng], t: Date.now() });
+    var idx = list.length + 1, nm = "";
+    try { nm = (window.prompt("给这个收藏窗口起个名字（可留空）", "窗口 " + idx) || "").trim(); } catch (e) {}
+    if (!nm) nm = "窗口 " + idx;
+
+    list.push({ sw: [sw.lat, sw.lng], ne: [ne.lat, ne.lng], t: Date.now(), name: nm });
 
     saveBookmarks(list);
 
-    toast("已收藏窗口（共 " + list.length + " 个）");
+    saveLastView();
+
+    toast("已收藏窗口「" + nm + "」（共 " + list.length + " 个）");
 
   };
 
@@ -13002,7 +13065,7 @@ function orgValOrDefault(b, k) {
 
       map.fitBounds([[bm.sw[0], bm.sw[1]], [bm.ne[0], bm.ne[1]]], { animate: true, padding: [40, 40] });
 
-      toast("已放回收藏窗口");
+      toast("已返回收藏窗口");
 
     } catch (e) { toast("收藏窗口数据无效"); }
 
@@ -13018,9 +13081,10 @@ function orgValOrDefault(b, k) {
 
       return '<div class="bm-row" style="display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid var(--border)">' +
 
-        '<span style="flex:1;font-size:13px">窗口 ' + (i + 1) + ' <span style="color:#888">（' + ts + '）</span></span>' +
+        '<span style="flex:1;font-size:13px">' + ((bm.name || ("窗口 " + (i + 1))).replace(/[<>&"]/g, function (c) { return ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "\"": "&quot;" })[c]; })) + ' <span style="color:#888">（' + ts + '）</span></span>' +
 
-        '<button class="btn-save" style="padding:4px 10px;font-size:12px" onclick="gotoBookmarkByIndex(' + i + ')">放回</button>' +
+        '<button class="btn-save" style="padding:4px 10px;font-size:12px" onclick="gotoBookmarkByIndex(' + i + ')">返回</button>' +
+        '<button class="btn-cancel2" style="padding:4px 10px;font-size:12px" onclick="renameBookmarkByIndex(' + i + ')">改名</button>' +
 
         '<button class="btn-cancel2" style="padding:4px 10px;font-size:12px" onclick="delBookmarkByIndex(' + i + ')">删除</button>' +
 
@@ -13049,6 +13113,35 @@ function orgValOrDefault(b, k) {
     openBookmarkChooser(l); toast("已删除该窗口");
 
   };
+
+  window.renameBookmarkByIndex = function (i) {
+    var l = getBookmarks(); if (!l[i]) return;
+    var cur = l[i].name || ("窗口 " + (i + 1)), nm = "";
+    try { nm = (window.prompt("修改收藏窗口名称", cur) || "").trim(); } catch (e) {}
+    if (!nm) return;
+    l[i].name = nm; saveBookmarks(l);
+    openBookmarkChooser(l); toast("已改名「" + nm + "」");
+  };
+
+  /* ---------- 次进恢复上次视窗（C-4+晚1）：记录最后视窗，再次进入时复原；首进无记录则保持默认视窗 ---------- */
+  var LV_KEY = "shuili_last_view";
+  function saveLastView() {
+    if (!map) return;
+    try { var c = map.getCenter(); localStorage.setItem(LV_KEY, JSON.stringify({ lat: c.lat, lng: c.lng, zoom: map.getZoom() })); } catch (e) {}
+  }
+  function restoreLastView() {
+    if (!map) return;
+    var s = null;
+    try { s = JSON.parse(localStorage.getItem(LV_KEY)); } catch (e) {}
+    if (s && typeof s.lat === "number" && typeof s.lng === "number" && typeof s.zoom === "number") {
+      try { map.setView([s.lat, s.lng], s.zoom); } catch (e) {}
+    }
+  }
+  var _lvTimer = null;
+  if (map) {
+    map.on("moveend", function () { if (_lvTimer) clearTimeout(_lvTimer); _lvTimer = setTimeout(saveLastView, 800); });
+    setTimeout(restoreLastView, 400);
+  }
 
   if (btnBk) btnBk.onclick = function () { window.appBookmark(); };
 
@@ -13150,25 +13243,28 @@ function orgValOrDefault(b, k) {
 
 
 
-  /* ---------- 启动 ---------- */
+  /* ---------- 启动（C-1：统信首屏优化 + 启动耗时 profiling） ---------- */
+  var _bootNow = (typeof performance !== "undefined" && performance.now) ? function () { return performance.now(); } : Date.now;
+  var _bootT0 = _bootNow();
+  function _bootMark(p) { try { console.log("[boot] " + p + " +" + Math.round(_bootNow() - _bootT0) + "ms"); } catch (e2) {} }
+  function _deferBoot(cb) { try { if (typeof requestAnimationFrame === "function") requestAnimationFrame(cb); else setTimeout(cb, 0); } catch (e2) { setTimeout(cb, 0); } }
 
-  load();
+  load(); _bootMark("load");
 
-  initMap();
-
-  initAIModule(); buildMenu();
+  initMap(); _bootMark("initMap");
 
   applyDefaultFilter(); // v3.38：打开时套用筛选默认值（默认非"全部"，避免全量渲染卡顿）
 
-  render();
+  render(); _bootMark("render"); // 先出图，降低统信首屏耗时
 
-  if (window.CtxMenu) window.CtxMenu.init({ map: map, records: function () { return BUILDINGS; }, textFields: [], getCoordinates: getCoordinates, nearbySearch: nearbySearch });
-
-
-
-  // 启动即清理解压临时目录（上次导入若中途退出会残留数 GB 的 inbox/uz_*），释放空间、避免“数据还在”
-
-  if (window.Android && typeof window.Android.cleanInbox === "function") { try { window.Android.cleanInbox(); } catch (e) {} }
+  // C-1：AI 菜单 / 右键菜单 / 临时目录清理 等非关键初始化延迟到首屏之后，避免阻塞首绘
+  _deferBoot(function () {
+    try { initAIModule(); buildMenu(); _bootMark("aiMenu"); } catch (e) {}
+    if (window.CtxMenu) try { window.CtxMenu.init({ map: map, records: function () { return BUILDINGS; }, textFields: [], getCoordinates: getCoordinates, nearbySearch: nearbySearch }); _bootMark("ctxMenu"); } catch (e) {}
+    // 启动即清理解压临时目录（上次导入若中途退出会残留数 GB 的 inbox/uz_*），释放空间、避免“数据还在”
+    if (window.Android && typeof window.Android.cleanInbox === "function") { try { window.Android.cleanInbox(); } catch (e) {} }
+    _bootMark("bootDone");
+  });
 
   // 首次进入提示三击快捷键（避免卡页找不到主菜单）
 

@@ -11,7 +11,7 @@
   var DIM = 256;              // 向量维度（兼顾精度与 localStorage 体积）
   var CHUNK = 520, OVERLAP = 80;
   var MAX_CHUNKS = 3000;      // 索引上限，超出则退化为关键词检索
-  var state = { domain: "app", hooks: null, chunks: [], df: {}, n: 0, avgLen: 10, vecs: null, loaded: false };
+  var state = { domain: "app", hooks: null, chunks: [], df: {}, n: 0, avgLen: 10, vecs: null, loaded: false, weights: { vector: 0.45, bm25: 0.35, fuzzy: 0.20 }, docCache: {} };
 
   /* ---------------- 工具 ---------------- */
   function lsKey() { return "kb_vec_" + state.domain; }
@@ -133,29 +133,37 @@
   function cos(a, b) { var s = 0; for (var i = 0; i < DIM; i++) s += a[i] * b[i]; return s; }
 
   /* ---------------- 3. 本地向量库 ---------------- */
+  // D-4：增量构建——按文档切片签名(sig)缓存向量，未变更文档跳过重新向量化（顺带缓解启动慢）
   function buildIndex(docs, onProgress) {
-    state.chunks = []; state.df = {}; state.n = 0;
+    var cache = state.docCache || {};
     var all = [];
     (docs || []).forEach(function (d) {
-      var parts = (d.chunks && d.chunks.length) ? d.chunks.slice()
-        : chunkText((d.title ? d.title + "\n" : "") + (d.body || ""));
-      if (!parts.length) parts = [String(d.body || d.title || "").slice(0, CHUNK)];
-      parts.forEach(function (t, i) {
-        all.push({ id: d.id + "#" + i, docId: d.id, title: d.title || "", source: d.source || "", type: d.type || "", toks: tokenize(t), text: t });
-      });
+      var sig = hash32((d.title || "") + "::" + (d.body || "") + "::" + JSON.stringify(d.chunks || null));
+      var reuse = (cache[d.id] && cache[d.id].sig === sig) ? cache[d.id].parts : null;
+      var parts;
+      if (reuse && reuse.length) {
+        parts = reuse;
+      } else {
+        var raw = (d.chunks && d.chunks.length) ? d.chunks.slice()
+          : chunkText((d.title ? d.title + "\n" : "") + (d.body || ""));
+        if (!raw.length) raw = [String(d.body || d.title || "").slice(0, CHUNK)];
+        parts = raw.map(function (t, i) {
+          return { id: d.id + "#" + i, docId: d.id, title: d.title || "", source: d.source || "", type: d.type || "", toks: tokenize(t), text: t, vec: embed(t) };
+        });
+        cache[d.id] = { sig: sig, parts: parts };
+      }
+      parts.forEach(function (c) { all.push(c); });
     });
     if (all.length > MAX_CHUNKS) all = all.slice(0, MAX_CHUNKS);
+    state.df = {}; state.n = 0;
     all.forEach(function (c) {
       var seen = {};
       c.toks.forEach(function (t) { if (!seen[t]) { state.df[t] = (state.df[t] || 0) + 1; seen[t] = 1; } });
       state.n++;
     });
     state.avgLen = all.reduce(function (a, c) { return a + c.toks.length; }, 0) / Math.max(all.length, 1) || 10;
-    for (var i = 0; i < all.length; i++) {
-      all[i].vec = embed(all[i].text);
-      if (onProgress && i % 20 === 0) onProgress((i + 1) / all.length, "向量化 " + (i + 1) + "/" + all.length);
-    }
     state.chunks = all;
+    state.docCache = cache;
     state.loaded = true;
     saveStore();
     return all.length;
@@ -206,11 +214,24 @@
     }
     return n ? hit / n : 0;
   }
+  // D-3：引用溯源——把查询词在原文中的命中位置高亮（<mark>）
+  function highlight(text, q) {
+    var t = String(text || "");
+    var toks = tokenize(q).filter(function (x) { return x.length >= 2 || /^[a-z0-9]+$/.test(x); });
+    toks.forEach(function (tk) {
+      try {
+        var re = new RegExp("(" + tk.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "g");
+        t = t.replace(re, "<mark>$1</mark>");
+      } catch (e) {}
+    });
+    return t;
+  }
   function hybridSearch(query, opt) {
     opt = opt || {};
     var topK = opt.topK || 5;
     if (!state.chunks.length) loadStore();
     if (!state.chunks.length) return [];
+    var W = state.weights || { vector: 0.45, bm25: 0.35, fuzzy: 0.20 };
     var qToks = tokenize(query), qv = embed(query);
     var raw = state.chunks.map(function (c) {
       var v = c.vec ? cos(qv, c.vec) : 0;
@@ -221,11 +242,18 @@
     var mv = Math.max.apply(null, raw.map(function (r) { return r.v; })) || 1;
     var mk = Math.max.apply(null, raw.map(function (r) { return r.k; })) || 1;
     raw.forEach(function (r) {
-      r.score = 0.45 * (r.v / mv) + 0.35 * (r.k / mk) + 0.20 * r.f;
+      // D-3：混合权重可学习（默认 0.45/0.35/0.20，可由 setWeights/learnWeights 调整）
+      r.score = (W.vector || 0.45) * (r.v / mv) + (W.bm25 || 0.35) * (r.k / mk) + (W.fuzzy || 0.20) * r.f;
     });
     raw.sort(function (a, b) { return b.score - a.score; });
+    state._lastRaw = raw; // D-3：保留原始信号供 learnWeights 使用
     return raw.filter(function (r) { return r.score > 0.02; }).slice(0, topK).map(function (r) {
-      return { docId: r.c.docId, title: r.c.title, source: r.c.source, type: r.c.type, text: r.c.text, score: r.score, detail: { vector: r.v, bm25: r.k, fuzzy: r.f } };
+      // D-3：置信度（归一化得分）+ 引用高亮 + 信号明细
+      return {
+        docId: r.c.docId, title: r.c.title, source: r.c.source, type: r.c.type,
+        text: r.c.text, score: r.score, confidence: Math.max(0, Math.min(1, r.score)),
+        highlight: highlight(r.c.text, query), detail: { vector: r.v, bm25: r.k, fuzzy: r.f }
+      };
     });
   }
   // 内容 → 条目（反向查询）：给定一段内容，找出它最可能出自哪些知识库条目
@@ -367,6 +395,9 @@
     });
     Object.keys(dfAdd).forEach(function (k) { state.df[k] = (state.df[k] || 0) + 1; });
     state.n = state.chunks.length;
+    // D-4：同步刷新增量缓存，使 buildIndex 可复用该文档向量
+    state.docCache = state.docCache || {};
+    state.docCache[id] = { sig: hash32((doc.title || "") + "::" + (doc.body || "") + "::" + JSON.stringify(doc.chunks || null)), parts: state.chunks.filter(function (c) { return c.docId === id; }) };
     saveStore();
     return parts.length;
   }
@@ -381,11 +412,42 @@
   }
   function clearIndex() { state.chunks = []; state.df = {}; state.n = 0; try { localStorage.removeItem(lsKey()); } catch (e) {} }
 
+  /* ---------------- D-3：混合权重可学习 ---------------- */
+  function getWeights() { return { vector: state.weights.vector, bm25: state.weights.bm25, fuzzy: state.weights.fuzzy }; }
+  function setWeights(w) {
+    if (!w) return getWeights();
+    var v = Number(w.vector), k = Number(w.bm25), f = Number(w.fuzzy);
+    if ([v, k, f].some(function (x) { return isNaN(x) || x < 0; })) return getWeights();
+    var sum = v + k + f; if (sum <= 0) return getWeights();
+    state.weights = { vector: v / sum, bm25: k / sum, fuzzy: f / sum };
+    return getWeights();
+  }
+  // D-3：基于反馈学习权重——让更能区分相关文档的信号获得更高权重（学习率 0.3，向区分度归一方向缓移）
+  function learnWeights(query, relevantDocIds) {
+    if (!query || !relevantDocIds || !relevantDocIds.length || !state._lastRaw || !state._lastRaw.length) return getWeights();
+    var rel = {}, i; for (i = 0; i < relevantDocIds.length; i++) rel[relevantDocIds[i]] = 1;
+    var relSig = { v: 0, k: 0, f: 0 }, othSig = { v: 0, k: 0, f: 0 }, rn = 0, on = 0;
+    state._lastRaw.forEach(function (r) {
+      if (rel[r.c.docId]) { relSig.v += r.v; relSig.k += r.k; relSig.f += r.f; rn++; }
+      else { othSig.v += r.v; othSig.k += r.k; othSig.f += r.f; on++; }
+    });
+    function avg(o, n) { return n ? { v: o.v / n, k: o.k / n, f: o.f / n } : { v: 0, k: 0, f: 0 }; }
+    var ra = avg(relSig, rn), oa = avg(othSig, on);
+    var sep = { vector: Math.max(0, ra.v - oa.v), bm25: Math.max(0, ra.k - oa.k), fuzzy: Math.max(0, ra.f - oa.f) };
+    var tot = sep.vector + sep.bm25 + sep.fuzzy;
+    if (tot <= 0) return getWeights();
+    var lr = 0.3, W = state.weights;
+    var nv = W.vector + lr * (sep.vector / tot - W.vector);
+    var nk = W.bm25 + lr * (sep.bm25 / tot - W.bm25);
+    var nf = W.fuzzy + lr * (sep.fuzzy / tot - W.fuzzy);
+    return setWeights({ vector: nv, bm25: nk, fuzzy: nf });
+  }
   global.KBRag = {
     init: init, buildIndex: buildIndex, addDoc: addDoc, removeDoc: removeDoc, clearIndex: clearIndex,
     search: hybridSearch, hybridSearch: hybridSearch, reverseQuery: reverseQuery, askSmart: askSmart,
     remember: remember, recall: recall, memClear: memClear, memLoad: memLoad,
     buildPrompt: buildPrompt, suggestPrompts: suggestPrompts, expandQuery: expandQuery,
+    setWeights: setWeights, getWeights: getWeights, learnWeights: learnWeights, highlight: highlight,
     chunkText: chunkText, tokenize: tokenize, embed: embed, stats: stats
   };
 })(typeof window !== "undefined" ? window : this);
