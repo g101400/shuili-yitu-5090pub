@@ -653,25 +653,6 @@
     });
   }
 
-  /* ================= 结果点击定位（v3.77）================= */
-  // 按名称在本项目全局数据中查找条目并跳转地图位置（兼容 水利/古建/感知 三种数据名）
-  function locateEntity(name) {
-    if (!name) return false;
-    var list = items() || [];
-    function norm(s) { return String(s || "").replace(/\s+/g, "").replace(/管理所/g, "所"); }
-    var b = null;
-    for (var i = 0; i < list.length; i++) {
-      var n = itemName(list[i]);
-      if (n && (n === name || norm(n) === norm(name))) { b = list[i]; break; }
-    }
-    if (!b) { toast("未找到「" + name + "」的地图位置"); return false; }
-    var lat = b.lat != null ? b.lat : b.latitude, lon = b.lon != null ? b.lon : b.longitude;
-    if (lat == null || lon == null) { toast("「" + name + "」暂无坐标，无法定位"); return false; }
-    if (global.appGoToMap) global.appGoToMap(lat, lon, 16, "sheetGen");
-    else if (global.map) global.map.setView([lat, lon], 16);
-    return true;
-  }
-
   /* ================= UI ================= */
   function uiReverse() {
     openGen("① 参数反查" + CFG.label, '<div style="font-size:13px;color:#666;margin-bottom:8px">' +
@@ -688,20 +669,16 @@
       var h = '<p style="color:#666;font-size:12px">命中 ' + res.length + ' 条，用时 ' + (Date.now() - t0) + ' ms</p>';
       if (!res.length) h += '<p style="color:#c0392b">未命中，试试更简短的关键词。</p>';
       res.forEach(function (r, i) {
-        h += '<div class="kbv-res" data-name="' + esc(r.name) + '" style="border:1px solid #eee;border-radius:8px;padding:8px;margin:6px 0;cursor:pointer">' +
+        h += '<div style="border:1px solid #eee;border-radius:8px;padding:8px;margin:6px 0">' +
           '<div style="font-weight:600">' + (i + 1) + '. ' + esc(r.name) +
           (r.type ? ' <span style="color:#8a939b;font-weight:400">（' + esc(r.type) + '）</span>' : '') +
           ' <span style="float:right;color:#1a6fc4">相关度 ' + Math.round(r.score * 100) + '%</span></div>' +
           (r.bestParam ? '<div style="font-size:12px;color:#555;margin-top:4px">关键参数：' + esc(r.bestParam) + '</div>' : '') +
           (r.attrs && r.attrs.length ? '<div style="font-size:12px;color:#777;margin-top:2px">' +
             esc(r.attrs.slice(0, 8).map(function (a) { return a[0] + "：" + (a[1] || ""); }).join("；")) + '</div>' : '') +
-          '<div style="font-size:11px;color:#1a6fc4;margin-top:4px">📍 点击在地图定位</div>' +
           '</div>';
       });
       $("kbvOut").innerHTML = h;
-      Array.prototype.slice.call($("kbvOut").querySelectorAll(".kbv-res")).forEach(function (el) {
-        el.onclick = function () { locateEntity(el.getAttribute("data-name")); };
-      });
     };
     $("kbvRebuild").onclick = function () { buildIndex(true); toast("索引已重建（" + ensure().items.length + " 条）"); };
   }
@@ -759,18 +736,11 @@
       if (!q) { toast("请输入检索词"); return; }
       var res = searchDocs(q, 8);
       $("kbvDocRes").innerHTML = res.length ? res.map(function (c, i) {
-        var _lnk = (c.links && c.links.length) ? c.links[0] : "";
-        return '<div class="kbv-res" data-name="' + esc(_lnk) + '" style="border:1px solid #eee;border-radius:8px;padding:8px;margin:6px 0;font-size:13px' + (_lnk ? ';cursor:pointer' : '') + '">' +
+        return '<div style="border:1px solid #eee;border-radius:8px;padding:8px;margin:6px 0;font-size:13px">' +
           '<div style="color:#1a6fc4">[' + (i + 1) + '] 《' + esc(c.doc) + '》 相关度 ' + Math.round(c.score * 100) + '%' +
           (c.links && c.links.length ? ' · 关联：' + esc(c.links.slice(0, 3).join("、")) : '') + '</div>' +
-          '<div style="color:#555;margin-top:4px">' + esc(c.text.slice(0, 220)) + '…</div>' +
-          (_lnk ? '<div style="font-size:11px;color:#1a6fc4;margin-top:4px">📍 点击在地图定位：' + esc(_lnk) + '</div>' : '') +
-          '</div>';
+          '<div style="color:#555;margin-top:4px">' + esc(c.text.slice(0, 220)) + '…</div></div>';
       }).join("") : '<div style="color:#999">未命中</div>';
-      if (res.length) Array.prototype.slice.call($("kbvDocRes").querySelectorAll(".kbv-res[data-name]")).forEach(function (el) {
-        var _n = el.getAttribute("data-name"); if (!_n) return;
-        el.onclick = function () { locateEntity(_n); };
-      });
     };
     var box = $("genBody");
     Array.prototype.slice.call(box.querySelectorAll("[data-del]")).forEach(function (el) {
@@ -797,17 +767,6 @@
         '<button class="btn-save" id="kbvRX">导出 Word(.docx)</button>' +
         '<button class="btn-cancel" id="kbvRP">预览 / 打印</button>' +
         '<button class="btn-cancel" id="kbvRC">复制全文</button></div>';
-      // v3.77：报告「相关X」条目点击定位（解析 h4 标题中的建筑物名称）
-      try {
-        var _rbox = $("kbvROut");
-        Array.prototype.slice.call(_rbox.querySelectorAll("h4")).forEach(function (h4) {
-          var _m = h4.textContent.match(/^\d+\.\s*(.+?)\s*[（(]/);
-          var _nm = _m ? _m[1].trim() : null;
-          if (!_nm) return;
-          h4.style.cursor = "pointer"; h4.style.color = "#1a6fc4"; h4.title = "点击在地图定位：" + _nm;
-          h4.onclick = function () { locateEntity(_nm); };
-        });
-      } catch (e) {}
       $("kbvRD").onclick = function () { exportDoc(q, rep.html); };
       $("kbvRX").onclick = function () { exportDocx(q, rep.text.split("\n")); };
       $("kbvRP").onclick = function () { previewPrint(rep.title, rep.html); };
