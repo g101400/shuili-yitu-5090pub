@@ -72,9 +72,9 @@
   // v3.35：内置三个 OpenRouter 免费模型预设（均兼容 OpenAI，key 由 ai_seed.js 或用户在设置中填写）
   function defaults() {
     return [
-      { id: "minimax-m27-free", name: "MiniMax M2.7 (免费)", baseUrl: OR_BASE, protocol: "openai", modelId: "minimax/minimax-m2.7:free", apiKey: "", local: false },
-      { id: "glm-52-free", name: "GLM 5.2 (免费·Z.ai)", baseUrl: OR_BASE, protocol: "openai", modelId: "z-ai/glm-5.2:free", apiKey: "", local: false },
-      { id: "nemotron-nano-free", name: "Nemotron 3 Nano Omni (免费·NVIDIA)", baseUrl: OR_BASE, protocol: "openai", modelId: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", apiKey: "", local: false }
+      { id: "qwen38-free", name: "Qwen 3.8 27B (免费)", baseUrl: OR_BASE, protocol: "openai", modelId: "qwen/qwen3.8-27b:free", apiKey: "", local: false },
+      { id: "nemotron-super-free", name: "Nemotron 3 Super 120B (免费·NVIDIA)", baseUrl: OR_BASE, protocol: "openai", modelId: "nvidia/nemotron-3-super-120b-a12b:free", apiKey: "", local: false },
+      { id: "nemotron35-free", name: "Nemotron 3.5 Lightning (免费·NVIDIA)", baseUrl: OR_BASE, protocol: "openai", modelId: "nvidia/nemotron-3.5-lightning:free", apiKey: "", local: false }
     ];
   }
 
@@ -90,7 +90,7 @@
     CFG.allowOnlineQuery = true; // v3.40：联网查询能力对所有域开放（默认开关见 onlineEnabled()）
     if (!CFG.fieldSchema || !CFG.fieldSchema.length) CFG.fieldSchema = ["intro", "features"];
     if (!localStorage.getItem(kModels(CFG.domain))) save(kModels(CFG.domain), defaults());
-    if (!localStorage.getItem(kDef(CFG.domain))) save(kDef(CFG.domain), "minimax-m27-free");
+    if (!localStorage.getItem(kDef(CFG.domain))) save(kDef(CFG.domain), "qwen38-free");
     if (!localStorage.getItem(kStrat(CFG.domain))) save(kStrat(CFG.domain), { mode: "failover" });
     if (!localStorage.getItem(kKB(CFG.domain))) save(kKB(CFG.domain), { index: [], bodies: {} }); // v3.38：知识库骨架
     if (!localStorage.getItem(kOnline(CFG.domain))) save(kOnline(CFG.domain), CFG.domain === "gujian"); // v3.40：默认 古建联网 / 水利·感知本地
@@ -245,6 +245,14 @@
   }
 
   /* ============================ 智能AI设置 ============================ */
+function _openExt(url) {
+  try { if (window.Android && typeof window.Android.openExternal === "function") { window.Android.openExternal(url); return; } } catch (e) {}
+  try { var a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); setTimeout(function () { if (a.parentNode) a.parentNode.removeChild(a); }, 500); } catch (e2) { try { window.open(url, "_blank"); } catch (e3) {} }
+}
+function providerBtn(name, url) {
+  return '<button class="tbtn" data-prov="' + esc(url) + '" style="font-size:12px">' + esc(name) + "</button>";
+}
+
   function openSettings() {
     var models = getModels(), def = getDef(), strat = getStrat();
     var mlist = models.map(function (m) {
@@ -271,6 +279,23 @@
       '<div style="display:flex;gap:8px;margin-top:12px">' +
         '<button class="btn-cancel" style="flex:1" id="btnExport">⬇ 导出配置</button>' +
         '<button class="btn-cancel" style="flex:1" id="btnImport">⬆ 导入配置</button></div>' +
+      '<h4 style="color:#6b2e2e;margin:14px 0 6px">🔑 申请 / 获取 API Key</h4>' +
+      '<p style="font-size:12px;color:#8a7c70;margin-bottom:6px">点击下方厂商，跳转其官网创建并复制 API Key，再回到「添加模型」粘贴即可。</p>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px" id="keyProviders">' +
+        providerBtn("OpenRouter", "https://openrouter.ai/keys") +
+        providerBtn("OpenAI", "https://platform.openai.com/api-keys") +
+        providerBtn("Anthropic", "https://console.anthropic.com/settings/keys") +
+        providerBtn("Google Gemini", "https://aistudio.google.com/app/apikey") +
+        providerBtn("DeepSeek", "https://platform.deepseek.com/api_keys") +
+        providerBtn("Kimi(Moonshot)", "https://platform.moonshot.cn/console/api-keys") +
+        providerBtn("智谱 GLM", "https://open.bigmodel.cn/usercenter/apikeys") +
+        providerBtn("通义 Qwen", "https://dashscope.console.aliyun.com/apiKey") +
+        providerBtn("NVIDIA", "https://build.nvidia.com/") +
+        providerBtn("Mistral", "https://console.mistral.ai/api-keys/") +
+        providerBtn("Groq", "https://console.groq.com/keys") +
+        providerBtn("硅基流动", "https://cloud.siliconflow.cn/i/VXhMELo8") +
+      "</div>" +
+
       '<div style="margin-top:10px;font-size:12px;color:#8a7c70">当前策略：' + esc(stratLabel) + "</div>";
     openGen("智能AI设置", html);
 
@@ -281,6 +306,7 @@
     bindData("data-edit", function (id) { var m = getModels().find(function (x) { return x.id === id; }); openModelForm(m); });
     bindData("data-del", function (id) { delModel(id); });
     bindData("data-test", function (id) { testModel(id); });
+    (function(){ var pv = q("keyProviders"); if (pv) pv.onclick = function (e) { var t = e.target.closest ? e.target.closest("[data-prov]") : null; if (t) { _openExt(t.getAttribute("data-prov")); } }; })();
   }
 
   function openModelForm(model) {

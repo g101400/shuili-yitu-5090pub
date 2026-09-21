@@ -667,9 +667,10 @@
     if (!b) { toast("未找到「" + name + "」的地图位置"); return false; }
     var lat = b.lat != null ? b.lat : b.latitude, lon = b.lon != null ? b.lon : b.longitude;
     if (lat == null || lon == null) { toast("「" + name + "」暂无坐标，无法定位"); return false; }
-    if (global.appGoToMap) global.appGoToMap(lat, lon, 16, "sheetGen");
-    else if (global.map) global.map.setView([lat, lon], 16);
-    return true;
+    if (global.appFocusBuilding) return global.appFocusBuilding(b, name);
+    if (global.appGoToMap) { global.appGoToMap(lat, lon, 16, "sheetGen"); return true; }
+    if (global.map) { global.map.setView([lat, lon], 16); return true; }
+    return false;
   }
 
   /* ================= UI ================= */
