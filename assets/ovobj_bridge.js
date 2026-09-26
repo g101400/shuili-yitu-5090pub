@@ -5,6 +5,25 @@
      - obj：奥维 txt/csv 坐标文本（每行 `名称,经度,纬度[,海拔]` 或空格分隔），
        纯文本，100% 可靠。 */
 
+  // 仅「真·安卓原生 WebView」走原生桥：安卓是唯一因分区存储（content://）导致
+  // 页面 <input type=file>+FileReader 无法读取文件内容的平台；其余（Windows/鸿蒙/
+  // UOS/Web/iOS PWA）一律改走页面自带 <input type=file>+FileReader（legacyImport*），
+  // 因为桌面壳注入的 window.Android 往往只实现"选"、不回传内容，会卡在"请选择"。
+  function isAndroidNative() {
+    try {
+      var ua = (typeof navigator !== "undefined" && navigator.userAgent) ? navigator.userAgent : "";
+      // 鸿蒙 ArkWeb 明确排除（即便 UA 兼容串含 Android，也走页面 input 稳路径）
+      if (/HarmonyOS|OpenHarmony|OHOS/i.test(ua)) return false;
+      // 桌面壳显式声明宿主类型（win/uos 等）一律走页面 input
+      if (typeof window.__host === "string" && window.__host && window.__host !== "android") return false;
+      // 显式原生安卓桥标记（如有）
+      if (window.__androidBridge === true) return true;
+      // 安卓 WebView userAgent 必含 Android
+      if (/Android/i.test(ua)) return true;
+    } catch (e) {}
+    return false;
+  }
+
   // ---- ovobj 二进制解析：ArrayBuffer -> [{name,lat,lon}] ----
 
   // ============ 老 WebKit/WebView 兼容：TextDecoder/TextEncoder polyfill ============
@@ -263,7 +282,7 @@
   // 应选中哪类文件；并新增「选择文件夹批量导入」，仿照 ovkmz 的文件夹+文件选择体验。
   function importOvobj() {
     try {
-      if (window.Android && typeof window.Android.pickFolder === "function" && typeof window.Android.readFileBase64 === "function") {
+      if (isAndroidNative() && window.Android && typeof window.Android.pickFolder === "function" && typeof window.Android.readFileBase64 === "function") {
         ask("导入 ovobj（奥维坐标）",
           "ovobj 是奥维互动地图导出的「对象」坐标文件（含名称 + 经纬度）。<br>请选择导入方式：",
           [
@@ -277,7 +296,7 @@
           });
         return;
       }
-      if (window.Android && typeof window.Android.pickFiles === "function" && typeof window.Android.readFileBase64 === "function") {
+      if (isAndroidNative() && window.Android && typeof window.Android.pickFiles === "function" && typeof window.Android.readFileBase64 === "function") {
         importOvobjFile(); return;
       }
       legacyImportOvobj();
@@ -412,7 +431,7 @@
   // ---- 导入 obj 坐标文本 ----
   function importObj() {
     try {
-      if (window.Android && typeof window.Android.pickFolder === "function" && typeof window.Android.readFileBase64 === "function") {
+      if (isAndroidNative() && window.Android && typeof window.Android.pickFolder === "function" && typeof window.Android.readFileBase64 === "function") {
         ask("导入 obj 坐标（文本）",
           "obj 是坐标文本文件（每行：名称,经度,纬度[,海拔]，支持 .obj / .txt / .csv）。<br>请选择导入方式：",
           [
@@ -426,7 +445,7 @@
           });
         return;
       }
-      if (window.Android && typeof window.Android.pickFiles === "function" && typeof window.Android.readFileBase64 === "function") {
+      if (isAndroidNative() && window.Android && typeof window.Android.pickFiles === "function" && typeof window.Android.readFileBase64 === "function") {
         importObjFile(); return;
       }
       legacyImportObj();

@@ -198,9 +198,9 @@
 
   var APPNAME = "水利工程基础信息一张图";
 
-  var APP_VERSION = "3.76";
+  var APP_VERSION = "3.94";
 
-  var APP_BUILD_DATE = "2026-09-16";
+  var APP_BUILD_DATE = "2026-09-22";
 
   // —— 双通道发版（防泄密）：版本末位奇偶决定发布通道 ——
   // 偶数(如 v3.50) = 内部版，保留单位内部数据；奇数(如 v3.49) = 公开/测试版，不含内部数据。
@@ -2479,30 +2479,36 @@ function orgValOrDefault(b, k) {
 
     // v3.45：管理处筛选（按局→管理处→所层次，前级筛选只在前级生效时按建筑物层级保留）
 
+    // 管理处：包含匹配（勾选关键词 k，b.guanchu 含 k 即命中）——与类型/管理所一致
     if (filters.guanchu.size) {
 
       var bG = b.guanchu || getOrgDefaults().guanchu;
-
-      var _gSel = filters.guanchu.has(bG);
+      var _gSel = false;
+      filters.guanchu.forEach(function (k) { if (bG && bG.indexOf(k) >= 0) _gSel = true; });
       if (filters.invertGuanchu ? _gSel : !_gSel) return false;
 
     }
 
-    // v3.26：管理所筛选忽略"管理"二字（史山所 与 史山管理所 视为同一）
-
+    // v3.26：管理所筛选忽略"管理"二字（史山所 与 史山管理所 视为同一）；包含匹配
     if (filters.offices.size) {
-      var _oS = filters.offices.has(normOffice(b.office));
+      var _bOn = normOffice(b.office);
+      var _oS = false;
+      filters.offices.forEach(function (k) { if (_bOn && _bOn.indexOf(k) >= 0) _oS = true; });
       if (filters.invertOffices ? _oS : !_oS) return false;
     }
 
     if (filters.stations.size) {
-      var _sSel = filters.stations.has(b.station || "");
+      var _bSt = b.station || "";
+      var _sSel = false;
+      filters.stations.forEach(function (k) { if (_bSt.indexOf(k) >= 0) _sSel = true; });
       if (filters.invertStations ? _sSel : !_sSel) return false;
     }
 
-    // Req 6：反选模式——勾选的类型被排除，显示其余类型
+    // Req 6：反选模式——勾选的类型被排除，显示其余类型；包含匹配（类型名含关键词即命中）
     if (filters.types.size) {
-      var _inSel = filters.types.has(b.btype);
+      var _bTy = b.btype || "";
+      var _inSel = false;
+      filters.types.forEach(function (k) { if (_bTy.indexOf(k) >= 0) _inSel = true; });
       if (filters.invertTypes ? _inSel : !_inSel) return false;
     }
 
@@ -3646,16 +3652,36 @@ function buildMenu() {
 
         { k: "impPhoto", ico: "🖼️", t: "批量导入照片", f: batchImportPhotos },
 
-        { k: "expPhoto", ico: "🗂️", t: "导出照片（按管理所）", f: exportPhotos }
+        { k: "expPhoto", ico: "🗂️", t: "导出照片（按管理所）", f: exportPhotos },
+
 
       ]},
 
       // v3.70：数据维护（清理/删除，与导入导出分离，避免误触）
+      { g: "矢量数据管理", ico: "🧭", items: [
+        { k: "impMdb", ico: "📃️", t: "导入矢量 mdb 数据", f: importMdb },
+        { k: "impSheet", ico: "📊", t: "导入矢量数据电子表格", f: importVecSheet },
+        { k: "impOvkmz", ico: "🗺️", t: "导入奥维ovkmz格式矢量数据", f: importVecOvkmz },
+        { k: "vecToggle", ico: "👁️", t: "矢量数据切换（显示/隐藏）", f: openVecToggle },
+        { k: "vecRename", ico: "✏️", t: "矢量数据修改名称", f: openVecRename },
+        { k: "vecDelete", ico: "🗑️", t: "矢量数据删除", f: openVecDelete },
+        { k: "expSheet", ico: "📤", t: "导出矢量数据为电子表格", f: openExportVectorSheet },
+        { k: "expOvkmz", ico: "🗺️", t: "导出矢量数据为奥维ovkmz格式", f: openExportOvkmz }
+      ]},
       { g: "数据维护", ico: "🧹", items: [
 
         { k: "cleanCache", ico: "🧹", t: "清理导入缓存（释放空间）", f: cleanImportCache },
 
-        { k: "delPhotos", ico: "🗑️", t: "删除添加的照片", f: deleteImportedPhotos }
+        { k: "delPhotos", ico: "🗑️", t: "删除添加的照片", f: deleteImportedPhotos },
+
+        // v3.78：数据类子菜单从「设置」并入「数据维护」（清理/删除归类，避免误触）
+        { k: "delBld", ico: "🏚️", t: "删除建筑物", f: deleteBuildingsMenu },
+
+        { k: "resetData", ico: "♻️", t: "恢复初始数据", f: resetData },
+
+        { k: "upExport", ico: "📤", t: "升级数据导出", f: upOpenExport },
+
+        { k: "upImport", ico: "📥", t: "升级数据导入", f: upOpenImport }
 
       ]},
 
@@ -3758,14 +3784,6 @@ function buildMenu() {
 
     ].concat(aiSettingItems).concat([
 
-      { k: "delBld", ico: "🏚️", t: "删除建筑物", f: deleteBuildingsMenu },
-
-      { k: "resetData", ico: "♻️", t: "恢复初始数据", f: resetData },
-
-      { k: "upExport", ico: "📤", t: "升级数据导出", f: upOpenExport },
-
-      { k: "upImport", ico: "📥", t: "升级数据导入", f: upOpenImport },
-
       { k: "upUpgrade", ico: "🔄", t: "软件升级（检测新版）", f: upOpenUpgrade },
 
       { k: "ghUpgrade", ico: "🐙", t: "GitHub 升级（检测新版）", f: ghOpenUpgrade },
@@ -3782,7 +3800,7 @@ function buildMenu() {
 
       { k: "changelog", ico: "📝", t: "版本变更", f: openChangelog },
 
-      { k: "platformCompare", ico: "📊", t: "四端功能对照单", f: openPlatformCompare },
+      { k: "platformCompare", ico: "📊", t: "四端功能对照表", f: openPlatformCompare },
 
       { k: "photoHelp", ico: "🖼️", t: "照片（目录与命名）", f: openPhotoHelp },
 
@@ -3799,6 +3817,17 @@ function buildMenu() {
     groups.forEach(function (grp) { grp.items.forEach(function (it) { keyMap[it.k] = it; }); });
 
     topItems.forEach(function (it) { keyMap[it.k] = it; });
+
+    // v3.77 首次启动默认配置（一次性，仅当从未自定义过）：传输与共享四项默认隐藏；列表视图/添加建筑物默认快捷常用
+    try {
+      if (localStorage.getItem("seedV377") === null) {
+        if (getHiddenMenus().length === 0) setHiddenMenus(["xferSet", "peer", "photosUos", "photosFromAndroid"].filter(function (k) { return keyMap[k]; }));
+        var _fav = getFavMenus();
+        ["listView", "addBld"].forEach(function (k) { if (keyMap[k] && _fav.indexOf(k) < 0) _fav.push(k); });
+        if (_fav.length) setFavMenus(_fav);
+        localStorage.setItem("seedV377", "1");
+      }
+    } catch (e) {}
 
     var favs = getFavMenus().filter(function (k) { return keyMap[k] && !isHiddenMenu(k); });
 
@@ -4576,6 +4605,8 @@ function buildMenu() {
     add("数据维护", "🧹", "cleanCache", "清理导入缓存（释放空间）");
 
     add("数据维护", "🗑️", "delPhotos", "删除添加的照片");
+    add("数据维护", "🏚️", "delBld", "删除建筑物");
+    add("数据维护", "♻️", "resetData", "恢复初始数据");
 
     add("导入与导出", "📥", "impKmz", "导入 ovkmz（奥维）");
 
@@ -4625,9 +4656,6 @@ function buildMenu() {
 
     add("知识库与智能", "📚", "m:知识库管理", "知识库管理");
 
-    add("设置", "🏚️", "delBld", "删除建筑物");
-
-    add("设置", "♻️", "resetData", "恢复初始数据");
 
     add("信息与帮助", "📈", "stats", "统计");
 
@@ -7430,6 +7458,16 @@ function buildMenu() {
 
   // 原生选择器回调：list = [{name,path}]
 
+  // 兼容回调名不一致：部分桌面壳（Windows/鸿蒙）回调 window.__pickResult 而非 window.onPickFiles
+  window.__pickResult = function (json) {
+    try {
+      var o = JSON.parse(json);
+      if (o && o.names && !o.files) {
+        json = JSON.stringify({ files: o.names.map(function (n) { return { name: n, path: n, size: 0 }; }) });
+      }
+    } catch (e) {}
+    return window.onPickFiles(json);
+  };
   window.onPickFiles = function (json) {
 
     try {
@@ -7568,6 +7606,72 @@ function buildMenu() {
 
       importObjFolder(list); return;
 
+    }
+
+
+    // mdb 导入路由（国土绿化/林业小班面状矢量；浏览器端 mdb-reader 解析）
+    if (window.__mdbImport) {
+
+      window.__mdbImport = false;
+
+      var mdbF = list.find(function (f) { return /\.mdb$/i.test(f.name); });
+
+      if (mdbF) {
+
+        if (window.Android && typeof window.Android.readFileBase64 === "function") {
+
+          busy("正在导入 " + mdbF.name + "，请稍后…"); busyDetail("解析 MDB 矢量数据中");
+
+          setTimeout(function () {
+
+            try {
+
+              var __b64 = window.Android.readFileBase64(mdbF.path);
+              if (!__b64) { idle(); pickSelfHealOnce("mdb", legacyImportMdb, "宿主未返回 mdb 内容"); return; }
+              var bytes = b64ToBytes(__b64);
+
+              renderMdbOverlay(bytes, mdbF.name);
+
+            } catch (e) { idle(); toast("导入失败：" + (e && e.message ? e.message : e)); }
+
+          }, 40);
+
+        } else { toast("当前环境不支持读取 mdb 二进制（缺少 readFileBase64）"); }
+
+        return;
+
+      }
+
+      toast("未选择 .mdb 文件"); return;
+
+    }
+
+    // 矢量数据导入路由（CSV 电子表格 / 奥维 ovkmz）— 与 mdb 同一文件选择管线
+    if (window.__vecImportMode) {
+      var vmode = window.__vecImportMode; window.__vecImportMode = null;
+      var vtarget = list.find(function (f) {
+        if (vmode === "csv") return /\.csv$/i.test(f.name);
+        if (vmode === "ovkmz") return /\.(ovkmz|kmz|kml)$/i.test(f.name);
+        return false;
+      });
+      if (!vtarget) { toast(vmode === "csv" ? "未选择 .csv 文件" : "未选择 .ovkmz/.kmz/.kml 文件"); return; }
+      if (vmode === "csv") {
+        if (window.Android && typeof window.Android.readFileText === "function") {
+          busy("正在导入 " + vtarget.name + "，请稍后…"); busyDetail("解析电子表格中");
+          setTimeout(function () { try { var __t = window.Android.readFileText(vtarget.path); if (!__t) { idle(); pickSelfHealOnce("csv", legacyImportVecSheet, "宿主未返回表格内容"); return; } importVecSheetFromText(__t, vtarget.name); } catch (e) { idle(); toast("导入失败：" + (e && e.message ? e.message : e)); } }, 40);
+        } else { toast("当前环境不支持读取文本文件（缺少 readFileText）"); }
+      } else if (/\.kml$/i.test(vtarget.name)) {
+        if (window.Android && typeof window.Android.readFileText === "function") {
+          busy("正在导入 " + vtarget.name + "，请稍后…"); busyDetail("解析 KML 中");
+          setTimeout(function () { try { var __t = window.Android.readFileText(vtarget.path); if (!__t) { idle(); pickSelfHealOnce("kml", legacyImportVecOvkmz, "宿主未返回 KML 内容"); return; } importVecOvkmzFromText(__t, vtarget.name); } catch (e) { idle(); toast("导入失败：" + (e && e.message ? e.message : e)); } }, 40);
+        } else { toast("当前环境不支持读取文本文件（缺少 readFileText）"); }
+      } else {
+        if (window.Android && typeof window.Android.readFileBase64 === "function") {
+          busy("正在导入 " + vtarget.name + "，请稍后…"); busyDetail("解析 ovkmz 中");
+          setTimeout(function () { try { var __b = window.Android.readFileBase64(vtarget.path); if (!__b) { idle(); pickSelfHealOnce("ovkmz", legacyImportVecOvkmz, "宿主未返回 ovkmz 内容"); return; } importVecOvkmzFromBase64(__b, vtarget.name); } catch (e) { idle(); toast("导入失败：" + (e && e.message ? e.message : e)); } }, 40);
+        } else { toast("当前环境不支持读取二进制文件（缺少 readFileBase64）"); }
+      }
+      return;
     }
 
     var archives = list.filter(function (f) { return /\.(zip|7z|rar)$/i.test(f.name); });
@@ -9660,6 +9764,11 @@ function buildMenu() {
     },
 
 
+    { v: "v3.94", d: "2026-09-22", items: [
+      "两日梳理与版本一致性治理（2026-09-22）：①修复 APP_VERSION 常量长期停在 3.90 与 version.json(3.92) 不符，导致「关于」显示旧版号、发布通道(奇偶)判断错乱；现 APP_VERSION 与 version.json 锁版本一致（v3.94）；②补齐 v3.67–v3.92 版本变更缺失记录；③矢量 mdb 导入/导出与「请选择」避坑沉淀为需求文档＋智能体开发提示词供复用；④三端四平台部署包重新生成（统信 deb 含端口劫持根治＋卸载清理）。",
+      "回归保持：矢量 mdb 导入（ES2020 转译＋非安卓走页面 input 稳路径＋new Function 同步守卫）、每页退出按钮＋三击空白呼主菜单、四端功能对照单/功能介绍/关于/照片目录、设置→软件升级/GitHub 升级；功能与菜单 0 删除。"
+    ]},
+
     { v: "v3.66", d: "2026-09-09", items: [
       "新增（内部版访问口令保护 · 默认口令即开发者分机号）：安装/首次使用弹出口令门，须输入正确口令方可进入；口令框内置「保存口令，下次不用输入」选项；设置菜单新增「🔑 修改口令」「❓ 忘记口令」子菜单——修改需先验证当前口令、新口令至少 4 位；忘记口令页提示联系开发者（分机号）协助重置；公开版（奇数版号）自动放行，无需口令。",
       "实现说明：口令不落明文（AES-256-GCM + PBKDF2-SHA256 12 万次迭代，仅存 salt/iv/密文），口令错误无法进入；iOS 数据加密版（内部加密 PWA）口令由部署方由部署方固化，应用内口令门自动放行、避免双重输入；数据加密版与口令门均支持本会话记住（刷新免输、关闭失效）。",
@@ -9997,6 +10106,12 @@ function buildMenu() {
 
   var PLATFORM_COMPARE = [
 
+    { v: "v3.77", d: "2026-09-21", note: "本版（三端四平台同步）：新增「矢量数据管理」（导入矢量 mdb 数据·通用读取 ESRI Personal Geodatabase，自动识别 CGCS2000 高斯-克吕格带号；切换/改名/删除/导出 CSV/导出 ovkmz）；修复四端功能对照表打开崩溃（PLATFORM_COMPARE 缺失 rows 越界容错）；传输与共享四项默认隐藏、列表视图/添加建筑物默认快捷常用；升级清单同步至最新版。四平台（Android/Win11/统信UOS/iOS PWA）同步，菜单与页面风格/背景/色彩/文字一致，功能与菜单 0 删除。", rows: [
+      { f: "矢量数据管理：导入 mdb/CSV/ovkmz·切换·改名·删除·导出 CSV/ovkmz（三路导入与导出格式一致）", a: "\u2705", i: "\u2705", w: "\u2705", u: "\u2705", n: "mdb_reader.js 懒加载；ESRI 压缩几何解析" },
+      { f: "四端功能对照表打开不再崩溃（缺失 rows 容错）", a: "\u2705", i: "\u2705", w: "\u2705", u: "\u2705", n: "PLATFORM_COMPARE 越界防护" },
+      { f: "传输与共享四项默认隐藏 + 列表视图/添加建筑物默认快捷常用", a: "\u2705", i: "\u2705", w: "\u2705", u: "\u2705", n: "首次启动一次性注入，可到设置恢复" }
+    ]},
+
     { f: "图片预览（滚轮/拖拽/双指缩放/长按菜单）与 游记·备忘录导出 Word/PDF", a: "✅", i: "✅", w: "✅", u: "✅", n: "photo_gesture.js + 报告导出" },
 
     { f: "CSV 导入导出兼容（Comment/comment 列 · | 与 ; · GBK 自动识别）", a: "✅", i: "✅", w: "✅", u: "✅", n: "修复奥维导出导入报未找到名称列" },
@@ -10272,13 +10387,13 @@ function buildMenu() {
 
     PLATFORM_COMPARE.forEach(function (c) {
 
-      html += '<div class="changelog-ver"><span class="cv">' + esc(c.v) + '</span><span class="cd">' + esc(c.d) + '</span></div>';
+      if (c.v) html += '<div class="changelog-ver"><span class="cv">' + esc(c.v) + '</span><span class="cd">' + esc(c.d || "") + '</span></div>';
 
       if (c.note) html += '<p style="font-size:12px;color:#666;margin:2px 0 6px">' + esc(c.note) + '</p>';
 
       html += '<table class="cmp-table"><thead><tr><th>功能</th><th>Android</th><th>iOS</th><th>Win11</th><th>UOS</th></tr></thead><tbody>';
 
-      c.rows.forEach(function (r) {
+      (c.rows || (c.f ? [c] : [])).forEach(function (r) {
 
         html += '<tr><td class="cmp-f">' + esc(r.f) + '</td>'
 
@@ -10298,7 +10413,7 @@ function buildMenu() {
 
     });
 
-    $("genTitle").textContent = "四端功能对照单";
+    $("genTitle").textContent = "四端功能对照表";
 
     $("genBody").innerHTML = html;
 
@@ -10994,11 +11109,11 @@ function buildMenu() {
 
   function importKmz() {
 
-    if (window.Android && typeof window.Android.pickFiles === "function") {
+    if (pickBridgeReady("importKmz")) {
 
       window.__kmzImport = true; // 标记 onPickFiles 路由到 kmz 导入
 
-      $("toast").textContent = "请选择 ovkmz / kmz / kml 文件…"; $("toast").classList.add("show");
+      toast("请选择 ovkmz / kmz / kml 文件…");
 
       window.Android.pickFiles("*/*");
 
@@ -11802,6 +11917,1103 @@ function buildMenu() {
   }
 
   // 浏览器回退：直接用 JSZip 解析（小文件）
+
+  // ===== MDB（ESRI Personal Geodatabase）导入：国土绿化 / 林业造林小班面数据 =====
+  // ===== 矢量 mdb 导入（浏览器端 mdb-reader 解析 ESRI Personal Geodatabase）=====
+  // 通用读取：shapefile 几何(5/15/25/3/13/23/1/11/21/8/18/28/31) + ESRI 压缩几何(高字节非零 4 字节前缀)
+  // 坐标系自动识别 CGCS2000 高斯-克吕格 3°带（由 X 反算带号），已是经纬度则直用；反算 WGS84 叠加到天地图
+  var MDB_A = 6378137.0, MDB_F = 1 / 298.257222101;
+  var MDB_E2 = MDB_F * (2 - MDB_F);
+  var MDB_EP2 = MDB_E2 / (1 - MDB_E2);
+  window.__mdbData = {};   // 已导入矢量项目： fname(去扩展名) -> { geojson, layer, visible, count, fname, cols, crs }
+  window.__mdbCrs = null;  // 最近一次识别到的坐标系，复用为后续导入默认值
+
+  // Node 全局垫片（2026-09-22 修复统信 UOS）：必须在【任何注入方式之前】安装。
+  // UOS main.py 以 file:// 加载页面时 XHR 被拦，会回退到 <script src>；该路径原先无垫片，
+  // bundle 抛 ReferenceError: process is not defined 而 module 注册不上，误报「缺少 mdb_reader.js」。
+  function mdbInstallNodeShims() {
+    try {
+      if (typeof window.process === "undefined") {
+        window.process = { env: {}, browser: true, nextTick: function (f) { try { setTimeout(f, 0); } catch (e) {} }, version: "", platform: "browser" };
+      }
+      if (typeof window.global === "undefined") window.global = window;
+    } catch (e) {}
+  }
+  function ensureMdbReader(cb) {
+    mdbInstallNodeShims();
+    var mdbLastErr = "";
+    var done = function (ok) {
+      try { if (ok && window.MDBReader && window.MDBReader.Buffer) window.Buffer = window.MDBReader.Buffer; } catch (e) {}
+      try { if (!ok && mdbLastErr) console.warn("[mdb_reader] 加载失败 -> " + mdbLastErr); } catch (e) {}
+      cb(ok, mdbLastErr);
+    };
+    if (window.MDBReader && window.MDBReader.Mdb) { done(true); return; }
+
+    // 优先「读取文本 + 内联 <script> 注入」：http / iOS PWA / Android file://（已开 setAllowUniversalAccessFromFileURLs）
+    // 均可靠，且不受部分 WebView 下 <script src>.onload 不触发的影响；失败再回退 <script src> 注入（桌面 file://）。
+    function injectText(txt) {
+      if (!txt) return false;
+      // 防御（2026-09-22）：若取回的 mdb_reader.js 仍是未转译旧版（含 ES2020 的 ??），
+      // 旧版系统浏览器/WebEngine 会抛 SyntaxError 被宿主壳当「运行错误」弹窗。
+      // 直接跳过注入、走回退链，避免吓人弹窗；用户需升级安装包。
+      // 根治（2026-09-22 再加固）：s.textContent 注入语法错误脚本时浏览器【异步】抛 SyntaxError，
+      // 外层 try/catch 包不住，会被宿主壳当成「运行错误」弹窗。改为用 new Function(txt) 在当前引擎里
+      //【同步】编译一次——引擎不支持的语法（任何 ??/?./??=/||=/&&= 或更新的语法）会同步抛错被 catch，
+      // 优雅跳过并提示升级，彻底杜绝弹窗。new Function 只编译不执行（browserify 产物为 CJS 包裹，无
+      // import/export/顶层 await），安全。
+      try { new Function(txt); } catch (se) { mdbLastErr = "mdb_reader.js 含当前浏览器无法解析的语法（疑似未转译旧版），已跳过注入，请升级到最新安装包"; return false; }
+      try {
+        // mdb_reader（browserify 产物）引用 process，浏览器/WebView 无此全局，需垫片，否则 util.js 抛 ReferenceError
+        mdbInstallNodeShims();
+        var s = document.createElement("script"); s.textContent = txt; document.head.appendChild(s);
+      } catch (e) { mdbLastErr = "内联注入异常：" + (e && e.message ? e.message : e); return false; }
+      return !!(window.MDBReader && window.MDBReader.Mdb);
+    }
+    function loadText(url, onOk, onFail) {
+      if (typeof XMLHttpRequest !== "undefined") {
+        try {
+          var x = new XMLHttpRequest(); x.open("GET", url, true);
+          x.onreadystatechange = function () { if (x.readyState === 4) { if (x.status === 200 || x.status === 0) onOk(x.responseText); else onFail(); } };
+          x.onerror = onFail; x.send(); return;
+        } catch (e) { /* fall to fetch */ }
+      }
+      if (typeof fetch !== "undefined") { fetch(url).then(function (r) { return r.text(); }).then(onOk).catch(onFail); return; }
+      onFail();
+    }
+    var urls = ["mdb_reader.js", "./mdb_reader.js", "file:///android_asset/mdb_reader.js", "app://mdb_reader.js"];
+    var idx = 0;
+    function tryText() {
+      if (idx >= urls.length) { scriptFallback(); return; }
+      var u = urls[idx++];
+      loadText(u, function (txt) { if (injectText(txt)) done(true); else tryText(); }, tryText);
+    }
+    function scriptFallback() {
+      mdbInstallNodeShims();
+      var sp = ["mdb_reader.js", "./mdb_reader.js", "js/mdb_reader.js", "file:///android_asset/mdb_reader.js", "app://mdb_reader.js"];
+      try {
+        var bu = String(document.baseURI || "");
+        var cut = bu.indexOf("index.html");
+        if (cut > 0) sp.push(bu.slice(0, cut) + "mdb_reader.js");
+      } catch (e) {}
+      var j = 0;
+      (function next() {
+        if (j >= sp.length) {
+          // 最后尝试 Android 原生桥读取 assets（最稳，需原生提供 readAssetText）
+          if (window.Android && typeof window.Android.readAssetText === "function") {
+            try { if (injectText(window.Android.readAssetText("mdb_reader.js"))) { done(true); return; } } catch (e) {}
+          }
+          done(false); return;
+        }
+        var p = sp[j++];
+        var s = document.createElement("script"); s.src = p;
+        s.onload = function () {
+          if (window.MDBReader && window.MDBReader.Mdb) { done(true); return; }
+          mdbLastErr = "已加载 " + p + " 但未注册 MDBReader（bundle 执行异常，多为缺 process 垫片）";
+          next();
+        };
+        s.onerror = function () { mdbLastErr = "无法加载 " + p; next(); };
+        document.head.appendChild(s);
+      })();
+    }
+    tryText();
+  }
+
+  // ---- 宿主文件桥能力检测与自愈（2026-09-22 修复）----
+  // 判据不能只看 pickFiles 是否存在：Windows / 鸿蒙等桌面壳注入的 window.Android
+  // 往往只实现了"选"，却没有真正回传文件内容（回调名不符或读取函数缺失），
+  // 表现就是"文件框弹了、用户也选了，界面却一直停在请选择"。
+  // 必须与对应的读取函数一起判定；缺任一环节就改用页面自带 <input type=file> + FileReader。
+  // 仅「真·安卓原生 WebView」走原生桥：安卓是唯一因分区存储（content://）导致
+  // 页面 <input type=file>+FileReader 无法读取文件内容的平台；其余（Windows/鸿蒙/
+  // UOS/Web/iOS PWA）一律改走页面自带 <input type=file>+FileReader（legacyImport*），
+  // 因为桌面壳注入的 window.Android 往往只实现"选"、不回传内容，会卡在"请选择"。
+  function isAndroidNative() {
+    try {
+      var ua = (typeof navigator !== "undefined" && navigator.userAgent) ? navigator.userAgent : "";
+      // 鸿蒙 ArkWeb 明确排除（即便 UA 兼容串含 Android，也走页面 input 稳路径）
+      if (/HarmonyOS|OpenHarmony|OHOS/i.test(ua)) return false;
+      // 桌面壳显式声明宿主类型（win/uos 等）一律走页面 input
+      if (typeof window.__host === "string" && window.__host && window.__host !== "android") return false;
+      // 显式原生安卓桥标记（如有）
+      if (window.__androidBridge === true) return true;
+      // 安卓 WebView userAgent 必含 Android
+      if (/Android/i.test(ua)) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  function pickBridgeReady(readerName) {
+    try {
+      var android = (typeof isAndroidNative === "function") ? isAndroidNative()
+        : /Android/i.test((typeof navigator !== "undefined" && navigator.userAgent) || "");
+      if (!android) return false;
+      return !!(window.Android && typeof window.Android.pickFiles === "function"
+        && typeof window.Android[readerName] === "function");
+    } catch (e) { return false; }
+  }
+  var __pickSelfHeal = {};
+  // 宿主确实回调了文件却读不出内容 → 自动改用系统选择方式重试一次（10s 内不重复，避免连环弹窗）
+  function pickSelfHealOnce(key, legacyFn, hint) {
+    if (__pickSelfHeal[key]) { toast(hint || "导入失败"); return; }
+    __pickSelfHeal[key] = 1;
+    setTimeout(function () { __pickSelfHeal[key] = 0; }, 10000);
+    toast((hint || "宿主未返回文件内容") + "，已改用系统方式选择…");
+    setTimeout(function () { try { legacyFn(); } catch (e) {} }, 260);
+  }
+
+  function importMdb() {
+    ensureMdbReader(function (ok, why) {
+      if (!ok) { try { toast("MDB 解析模块加载失败（缺少 mdb_reader.js）" + (why ? "：" + why : "")); } catch (e) {} return; }
+      if (pickBridgeReady("readFileBase64")) {
+        window.__mdbImport = true;
+        toast("请选择 .mdb 文件…");
+        window.Android.pickFiles("*/*");
+      } else {
+        legacyImportMdb();
+      }
+    });
+  }
+
+  function legacyImportMdb() {
+    var inp = document.createElement("input");
+    inp.type = "file"; inp.accept = ".mdb,application/x-msaccess,application/vnd.ms-access";
+    inp.onchange = function () {
+      var f = this.files[0]; if (!f) return;
+      busy("正在导入 " + f.name + "，请稍后…"); busyDetail("解析 MDB 矢量数据中");
+      var fr = new FileReader();
+      fr.onload = function () {
+        try { renderMdbOverlay(new Uint8Array(fr.result), f.name); }
+        catch (e) { idle(); toast("导入失败：" + (e && e.message ? e.message : e)); }
+      };
+      fr.onerror = function () { idle(); toast("读取文件失败"); };
+      fr.readAsArrayBuffer(f);
+    };
+    inp.click();
+  }
+
+  // ---- 高斯-克吕格反算（CGCS2000 椭球）----
+  function mdbMeridianArc(phi) {
+    var e2 = MDB_E2, e4 = e2 * e2, e6 = e2 * e4;
+    var A0 = 1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256;
+    var A2 = 3 * e2 / 8 + 3 * e4 / 32 + 45 * e6 / 1024;
+    var A4 = 15 * e4 / 256 + 45 * e6 / 1024;
+    var A6 = 35 * e6 / 3072;
+    return MDB_A * (A0 * phi - A2 * Math.sin(2 * phi) + A4 * Math.sin(4 * phi) - A6 * Math.sin(6 * phi));
+  }
+  function mdbFootpoint(y) {
+    var e2 = MDB_E2, e4 = e2 * e2, e6 = e2 * e4;
+    var A0 = 1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256;
+    var phi = y / (MDB_A * A0);
+    for (var i = 0; i < 12; i++) {
+      var m = mdbMeridianArc(phi);
+      var d = (y - m) / (MDB_A * A0);
+      phi += d;
+      if (Math.abs(d) < 1e-13) break;
+    }
+    return phi;
+  }
+  function mdbGkInverse(E, N, FE, CM) {
+    var x = E - FE, y = N, l0 = CM * Math.PI / 180;
+    var phi1 = mdbFootpoint(y);
+    var sinp = Math.sin(phi1), cosp = Math.cos(phi1);
+    var N1 = MDB_A / Math.sqrt(1 - MDB_E2 * sinp * sinp);
+    var T = Math.tan(phi1) * Math.tan(phi1);
+    var C = MDB_EP2 * cosp * cosp;
+    var R1 = MDB_A * (1 - MDB_E2) / Math.pow(1 - MDB_E2 * sinp * sinp, 1.5);
+    var D = x / N1, D2 = D * D, D4 = D2 * D2, D6 = D4 * D2;
+    var phi = phi1 - (N1 * Math.tan(phi1) / R1) * (
+        D2 / 2 - (5 + 3 * T + 10 * C - 4 * C * C - 9 * MDB_EP2) * D4 / 24
+        + (61 + 90 * T + 298 * C + 45 * T * T - 252 * MDB_EP2 - 3 * C * C) * D6 / 720);
+    var lam = l0 + (D - (1 + 2 * T + C) * D2 * D / 6
+        + (5 + 28 * T + 6 * C + 8 * MDB_EP2 + 24 * T * T) * D4 * D / 120) / cosp;
+    return [lam * 180 / Math.PI, phi * 180 / Math.PI];
+  }
+
+  // ---- 坐标系自动识别 ----
+  function mdbDetectCrs(sx, sy) {
+    // 已是经纬度（度）直用
+    if (sx > -1000 && sx < 1000 && sy > -1000 && sy < 1000) return { wgs: true };
+    // 3°带：FE = 500000 + zone*1000000 → zone = round((X-500000)/1e6)
+    var zone = Math.round((sx - 500000) / 1000000);
+    if (zone < 13 || zone > 60) zone = 39;
+    var fe = zone * 1000000 + 500000, cm = zone * 3;
+    var ll = mdbGkInverse(sx, sy, fe, cm);
+    // 合理性校验：反算后须在我国经纬度范围内，否则当作经纬度直用
+    if (ll[0] < 70 || ll[0] > 140 || ll[1] < 0 || ll[1] > 60) return { wgs: true };
+    return { wgs: false, zone: zone, falseEasting: fe, centralMeridian: cm };
+  }
+
+  // ---- 统一几何解析（shapefile + ESRI 压缩；两种格式均含 4 字节前缀，Box 在 offset 4）----
+  function mdbBoundsOk(buf, base, numParts, numPoints) {
+    if (numParts <= 0 || numPoints <= 0 || numParts > 100000 || numPoints > 5000000) return false;
+    return buf.length >= base + 40 + numParts * 4 + numPoints * 16; // parts 从 base+40 起
+  }
+  function mdbParseGeometry(buf) {
+    try {
+      if (!buf || buf.length < 44) return null;
+      var head = buf.readUInt32LE(0);
+      var isEsri = (head & 0xFF000000) !== 0; // 高字节非零 → ESRI 压缩几何（4 字节头部前缀）
+      if (isEsri) return mdbParsePolyBody(buf, 4);
+      var type = buf.readInt32LE(0);
+      if (type === 5 || type === 15 || type === 25) return mdbParsePolyBody(buf, 4);
+      if (type === 3 || type === 13 || type === 23) return mdbParseLineBody(buf, 4);
+      if (type === 8 || type === 18) return mdbParseMultiPointBody(buf, 4);
+      if (type === 1 || type === 11 || type === 21) return mdbParsePointBody(buf, 4);
+      if (type === 28 || type === 31) return mdbParseMultiPatchBody(buf, 4);
+      return null;
+    } catch (e) { return null; }
+  }
+  function mdbParsePolyBody(buf, base) {
+    var numParts = buf.readInt32LE(base + 32), numPoints = buf.readInt32LE(base + 36);
+    if (!mdbBoundsOk(buf, base, numParts, numPoints)) return null;
+    var off = base + 40, parts = [];
+    for (var i = 0; i < numParts; i++) { parts.push(buf.readInt32LE(off)); off += 4; }
+    var pts = [];
+    for (var j = 0; j < numPoints; j++) { pts.push([buf.readDoubleLE(off), buf.readDoubleLE(off + 8)]); off += 16; }
+    var rings = [];
+    for (var k = 0; k < numParts; k++) { var s = parts[k], e = (k + 1 < numParts) ? parts[k + 1] : numPoints, ring = []; for (var mm = s; mm < e; mm++) ring.push(pts[mm]); rings.push(ring); }
+    var bbox = [buf.readDoubleLE(base), buf.readDoubleLE(base + 8), buf.readDoubleLE(base + 16), buf.readDoubleLE(base + 24)];
+    return { type: "Polygon", rings: rings, bbox: bbox };
+  }
+  function mdbParseLineBody(buf, base) {
+    var numParts = buf.readInt32LE(base + 32), numPoints = buf.readInt32LE(base + 36);
+    if (!mdbBoundsOk(buf, base, numParts, numPoints)) return null;
+    var off = base + 40, parts = [];
+    for (var i = 0; i < numParts; i++) { parts.push(buf.readInt32LE(off)); off += 4; }
+    var pts = [];
+    for (var j = 0; j < numPoints; j++) { pts.push([buf.readDoubleLE(off), buf.readDoubleLE(off + 8)]); off += 16; }
+    var lines = [];
+    for (var k = 0; k < numParts; k++) { var s = parts[k], e = (k + 1 < numParts) ? parts[k + 1] : numPoints, line = []; for (var mm = s; mm < e; mm++) line.push(pts[mm]); lines.push(line); }
+    return { type: "LineString", lines: lines };
+  }
+  function mdbParseMultiPointBody(buf, base) {
+    var numPoints = buf.readInt32LE(base + 32);
+    if (!mdbBoundsOk(buf, base, 1, numPoints)) return null;
+    var off = base + 36, pts = [];
+    for (var j = 0; j < numPoints; j++) { pts.push([buf.readDoubleLE(off), buf.readDoubleLE(off + 8)]); off += 16; }
+    return { type: "MultiPoint", points: pts };
+  }
+  function mdbParsePointBody(buf, base) {
+    if (buf.length < base + 16) return null;
+    return { type: "Point", coord: [buf.readDoubleLE(base), buf.readDoubleLE(base + 8)] };
+  }
+  function mdbParseMultiPatchBody(buf, base) {
+    var numParts = buf.readInt32LE(base + 36), numPoints = buf.readInt32LE(base + 40);
+    if (!mdbBoundsOk(buf, base, numParts, numPoints)) return null;
+    var off = base + 44, parts = [];
+    for (var i = 0; i < numParts; i++) { parts.push(buf.readInt32LE(off)); off += 4; }
+    var pts = [];
+    for (var j = 0; j < numPoints; j++) { pts.push([buf.readDoubleLE(off), buf.readDoubleLE(off + 8)]); off += 16; }
+    var rings = [];
+    for (var k = 0; k < numParts; k++) { var s = parts[k], e = (k + 1 < numParts) ? parts[k + 1] : numPoints, ring = []; for (var mm = s; mm < e; mm++) ring.push(pts[mm]); rings.push(ring); }
+    return { type: "Polygon", rings: rings, bbox: [buf.readDoubleLE(base + 4), buf.readDoubleLE(base + 12), buf.readDoubleLE(base + 20), buf.readDoubleLE(base + 28)] };
+  }
+
+  function mdbShapeBuf(shape) {
+    if (!shape) return null;
+    try { if (window.MDBReader.Buffer && window.MDBReader.Buffer.isBuffer(shape)) return shape; } catch (e) {}
+    if (shape.content) { try { return window.MDBReader.Buffer.from(shape.content); } catch (e) {} }
+    return null;
+  }
+
+  // ---- 渲染 + 入库（多项目、可切换）----
+  function renderMdbOverlay(bytes, fname) {
+    if (!window.MDBReader || !window.MDBReader.Mdb) { idle(); try { toast("MDB 解析模块未加载"); } catch (e) {} return; }
+    try { if (window.MDBReader.Buffer) window.Buffer = window.MDBReader.Buffer; } catch (e) {}
+    try {
+      var db = new window.MDBReader.Mdb(window.MDBReader.Buffer.from(bytes));
+      var names = db.getTableNames();
+      var fc = null;
+      for (var i = 0; i < names.length; i++) {
+        var n = names[i];
+        if (n.indexOf("GDB_") === 0 || /_Shape_Index$/.test(n)) continue;
+        var cols = db.getTable(n).getColumns(), hasShape = false;
+        for (var c = 0; c < cols.length; c++) { if (cols[c].name === "Shape") { hasShape = true; break; } }
+        if (hasShape) { fc = n; break; }
+      }
+      if (!fc) { idle(); toast("MDB 中未找到含 Shape 的要素类（面/线/点矢量）"); return; }
+      var t = db.getTable(fc);
+      var colsAll = t.getColumns().map(function (cc) { return cc.name; });
+      var rows = t.getData();
+      var propNames = colsAll.filter(function (cn) { return cn !== "Shape"; });
+      // 坐标系识别：取首个可解析几何的 X
+      var crs = window.__mdbCrs, sx = null;
+      for (var s0 = 0; s0 < rows.length && sx === null; s0++) {
+        var sb0 = mdbShapeBuf(rows[s0].Shape);
+        if (sb0) { var g0 = mdbParseGeometry(sb0); if (g0 && g0.bbox) sx = g0.bbox[0]; }
+      }
+      if (sx !== null) { crs = mdbDetectCrs(sx, 0); if (crs && !crs.wgs) window.__mdbCrs = crs; }
+      var fe = (crs && !crs.wgs) ? crs.falseEasting : 0, cm = (crs && !crs.wgs) ? crs.centralMeridian : 0;
+      function proj(p) { return (crs && !crs.wgs) ? mdbGkInverse(p[0], p[1], fe, cm) : [p[0], p[1]]; }
+      function track(ll, acc) { if (ll[1] < acc[0]) acc[0] = ll[1]; if (ll[1] > acc[1]) acc[1] = ll[1]; if (ll[0] < acc[2]) acc[2] = ll[0]; if (ll[0] > acc[3]) acc[3] = ll[0]; }
+
+      var features = [], okGeom = 0, badGeom = 0;
+      var acc = [90, -90, 180, -180];
+      for (var r = 0; r < rows.length; r++) {
+        var row = rows[r], geomWGS = null;
+        var sbuf = mdbShapeBuf(row.Shape);
+        if (sbuf) {
+          var g = mdbParseGeometry(sbuf);
+          if (g) {
+            if (g.type === "Polygon") {
+              var polyRings = g.rings.map(function (ring) { return ring.map(function (xy) { var ll = proj(xy); track(ll, acc); return [+ll[0].toFixed(8), +ll[1].toFixed(8)]; }); });
+              geomWGS = { type: "Polygon", coordinates: polyRings }; okGeom++;
+            } else if (g.type === "LineString") {
+              var lineCoords = [];
+              g.lines.forEach(function (line) { line.forEach(function (xy) { var ll = proj(xy); track(ll, acc); lineCoords.push([+ll[0].toFixed(8), +ll[1].toFixed(8)]); }); });
+              geomWGS = { type: "LineString", coordinates: lineCoords }; okGeom++;
+            } else if (g.type === "Point" || g.type === "MultiPoint") {
+              var pp = g.type === "Point" ? [g.coord] : g.points;
+              var ptCoords = pp.map(function (xy) { var ll = proj(xy); track(ll, acc); return [+ll[0].toFixed(8), +ll[1].toFixed(8)]; });
+              geomWGS = g.type === "Point" ? { type: "Point", coordinates: ptCoords[0] } : { type: "MultiPoint", coordinates: ptCoords }; okGeom++;
+            }
+          } else badGeom++;
+        } else badGeom++;
+        var props = {};
+        for (var p = 0; p < propNames.length; p++) props[propNames[p]] = row[propNames[p]];
+        features.push({ type: "Feature", properties: props, geometry: geomWGS });
+      }
+      var geo = { type: "FeatureCollection", features: features.filter(function (f) { return f.geometry; }) };
+      if (!geo.features.length) { idle(); toast("MDB 未解析出任何可显示的几何（" + fname + "）"); return; }
+      var baseName = (fname || "矢量数据").replace(/\.mdb$/i, "");
+      var layer = L.geoJSON(geo, {
+        style: { color: "#2e8b57", weight: 2, fillColor: "#7cc892", fillOpacity: 0.28 },
+        pointToLayer: function (feature, latlng) { return L.circleMarker(latlng, { radius: 5, color: "#c0392b", fillColor: "#e74c3c", fillOpacity: 0.9, weight: 2 }); },
+        onEachFeature: function (feature, ly) { ly.bindPopup(mdbPopupHtml(feature.properties || {}), { maxWidth: 300 }); }
+      });
+      if (window.__mdbData[baseName] && window.__mdbData[baseName].layer) { try { map.removeLayer(window.__mdbData[baseName].layer); } catch (e) {} }
+      window.__mdbData[baseName] = { geojson: geo, layer: layer, visible: true, count: geo.features.length, fname: fname, cols: propNames, crs: crs };
+      map.addLayer(layer);
+      if (acc[0] <= acc[1] && acc[2] <= acc[3]) map.fitBounds([[acc[0], acc[2]], [acc[1], acc[3]]], { padding: [40, 40] });
+      idle();
+      var crsInfo = (crs && !crs.wgs) ? ("（GK " + crs.zone + " 带→WGS84）") : "（经纬度直用）";
+      toast("已导入 " + baseName + "：要素 " + okGeom + " 个" + (badGeom ? "（" + badGeom + " 个无几何）" : "") + crsInfo);
+    } catch (e) {
+      idle(); toast("导入失败：" + (e && e.message ? e.message : e));
+    }
+  }
+
+  var MDB_PRIORITY = ["小班号", "标记号", "小班（", "面积", "面积_亩", "序号", "技术类", "技术类型", "年度进度", "地貌", "海拔", "坡向", "坡位", "坡度", "土壤类", "土层厚", "土壤质", "立地类", "植被覆", "郁闭度", "优势树", "龄组", "树种组", "工程类", "林种", "建设方向", "山区平原", "海拔分级", "坡度分级", "土厚分级", "主林层", "OBJECTID", "OBJECTID_1"];
+  function mdbPopupHtml(props) {
+    var keys = Object.keys(props || {});
+    if (!keys.length) return '<div style="font-size:13px;color:#888">（无属性）</div>';
+    var ordered = [], rest = [];
+    MDB_PRIORITY.forEach(function (k) { if (keys.indexOf(k) >= 0) ordered.push(k); });
+    keys.forEach(function (k) { if (ordered.indexOf(k) < 0) rest.push(k); });
+    rest.sort();
+    var html = '<div style="max-height:260px;overflow:auto;font-size:13px">';
+    ordered.concat(rest).forEach(function (k) {
+      var v = props[k]; if (v == null) v = "—";
+      html += '<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0;border-bottom:1px dashed #eee"><span style="color:#888">' + esc(k) + '</span><span>' + esc(String(v)) + '</span></div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  // ===== 矢量数据管理 · 通用工具（自给自足：不依赖各端差异 helper，避免古建端缺函数导致报错）=====
+  function mdbQ(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function mdbCsvCell(v) {
+    var s = (v == null ? "" : String(v));
+    if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+  function mdbSafeName(n, ext) {
+    return String((n || "全部矢量") + "_" + getTodayStr() + ext).replace(/[\\/:*?"<>|]/g, "_");
+  }
+  // 统一落盘：安卓走 window.Android.saveBlob/saveBlobTo(dataURL)；桌面/浏览器走 <a download>
+  function mdbSaveOut(blob, name) {
+    var A = window.Android;
+    var toDataUrl = function (cb, fallbackName) {
+      try {
+        var fr = new FileReader();
+        fr.onloadend = function () { try { cb(String(fr.result)); } catch (e) { mdbSaveOutAnchor(blob, fallbackName); } };
+        fr.onerror = function () { mdbSaveOutAnchor(blob, fallbackName); };
+        fr.readAsDataURL(blob);
+      } catch (e) { mdbSaveOutAnchor(blob, fallbackName); }
+    };
+    try {
+      if (A && typeof A.saveBlob === "function") {
+        toDataUrl(function (du) { A.saveBlob(du, name); toast("已导出：" + name + "（Download 目录）"); }, name);
+        return;
+      }
+      if (A && typeof A.saveBlobTo === "function") {
+        toDataUrl(function (du) { A.saveBlobTo(du, "", name); toast("已导出：" + name + "（Download 目录）"); }, name);
+        return;
+      }
+    } catch (e) {}
+    mdbSaveOutAnchor(blob, name);
+  }
+  function mdbSaveOutAnchor(blob, name) {
+    try {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = name;
+      (document.body || document.documentElement).appendChild(a);
+      a.click();
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} try { a.remove(); } catch (e) {} }, 3000);
+      toast("已导出：" + name);
+    } catch (e) { toast("导出失败：" + (e && e.message ? e.message : e)); }
+  }
+  // 删除保护：两步确认（不依赖 confirm() —— 安卓 WebView 未接 WebChromeClient 时会直接返回 false）
+  var MDB_DEL_ARMED = false;
+  function mdbDelArm(btn, label) {
+    if (MDB_DEL_ARMED) return true;
+    MDB_DEL_ARMED = true;
+    btn.textContent = "⚠ 再点一次确认删除";
+    btn.style.background = "#c0392b"; btn.style.color = "#fff";
+    setTimeout(function () {
+      MDB_DEL_ARMED = false;
+      try { btn.textContent = label; btn.style.background = ""; btn.style.color = ""; } catch (e) {}
+    }, 4000);
+    toast("再点一次按钮确认删除（4 秒内有效）");
+    return false;
+  }
+  function mdbCrsLabel(d) { return (d && d.crs && !d.crs.wgs) ? ("GK" + d.crs.zone + "带") : "经纬度"; }
+  function mdbEmptyTip(act) { toast("尚未导入任何矢量数据" + (act ? "，" + act : "")); }
+
+  // ===== 矢量数据切换（显示/隐藏/定位）=====
+  window.mdbToggleLayer = function (chk) {
+    var nm = chk.getAttribute("data-nm"); var d = window.__mdbData[nm]; if (!d) return;
+    d.visible = chk.checked;
+    try { if (chk.checked) map.addLayer(d.layer); else map.removeLayer(d.layer); } catch (e) {}
+    toast((chk.checked ? "已显示：" : "已隐藏：") + nm);
+  };
+  window.mdbZoomToVec = function (nm) {
+    var d = window.__mdbData[nm]; if (!d) return;
+    if (!d.visible) { d.visible = true; try { map.addLayer(d.layer); } catch (e) {} }
+    try { if (d.layer && typeof d.layer.getBounds === "function") map.fitBounds(d.layer.getBounds()); } catch (e) {}
+    toast("已定位：" + nm);
+  };
+  window.mdbRemoveLayer = function (nm) {
+    var d = window.__mdbData[nm]; if (!d) return;
+    try { map.removeLayer(d.layer); } catch (e) {}
+    delete window.__mdbData[nm];
+    toast("已删除图层：" + nm);
+  };
+  function openVecToggle() {
+    var names = Object.keys(window.__mdbData);
+    if (!names.length) { mdbEmptyTip("请先「导入矢量 mdb 数据」"); return; }
+    var listHtml = names.map(function (nm) {
+      var d = window.__mdbData[nm];
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+        '<input type="checkbox" class="vlayerChk" data-nm="' + mdbQ(nm) + '"' + (d.visible ? " checked" : "") + ' onchange="mdbToggleLayer(this)">' +
+        '<span style="flex:1;font-size:14px">' + esc(nm) +
+        ' <span style="color:#888;font-size:12px">(' + d.count + ' 要素·' + mdbCrsLabel(d) + ')</span></span>' +
+        '<button class="btn-mini" onclick="mdbZoomToVec(\'' + mdbQ(nm) + '\')">定位</button>' +
+        '</div>';
+    }).join("");
+    $("genTitle").textContent = "矢量数据切换（显示/隐藏）";
+    $("genBody").innerHTML =
+      '<p style="font-size:13px;color:#555;margin-bottom:8px">勾选 = 在天地图上显示，取消 = 隐藏；「定位」= 缩放到该矢量范围：</p>' +
+      '<div style="max-height:50vh;overflow:auto">' + listHtml + '</div>' +
+      '<div class="form-actions">' +
+        '<button class="btn-save" onclick="mdbShowAllLayers()">全部显示</button>' +
+        '<button class="btn-save" onclick="mdbHideAllLayers()">全部隐藏</button>' +
+        '<button class="btn-cancel" onclick="closeSheet(\'sheetGen\')">关闭</button>' +
+      '</div>';
+    openSheet("sheetGen");
+  }
+  window.mdbShowAllLayers = function () {
+    Object.keys(window.__mdbData).forEach(function (nm) { var d = window.__mdbData[nm]; d.visible = true; try { map.addLayer(d.layer); } catch (e) {} });
+    toast("已显示全部矢量数据");
+    if ($("genTitle") && String($("genTitle").textContent).indexOf("切换") >= 0) openVecToggle();
+  };
+  window.mdbHideAllLayers = function () {
+    Object.keys(window.__mdbData).forEach(function (nm) { var d = window.__mdbData[nm]; d.visible = false; try { map.removeLayer(d.layer); } catch (e) {} });
+    toast("已隐藏全部矢量数据");
+    if ($("genTitle") && String($("genTitle").textContent).indexOf("切换") >= 0) openVecToggle();
+  };
+
+  // ===== 矢量数据修改名称（单条即时生效 / 批量应用）=====
+  function openVecRename() {
+    var names = Object.keys(window.__mdbData);
+    if (!names.length) { mdbEmptyTip("请先「导入矢量 mdb 数据」"); return; }
+    var listHtml = names.map(function (nm) {
+      var d = window.__mdbData[nm];
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+        '<span style="flex:1;font-size:14px">' + esc(nm) + ' <span style="color:#888;font-size:12px">(' + d.count + ' 要素)</span></span>' +
+        '<input type="text" class="vecRenameInput" data-old="' + mdbQ(nm) + '" value="' + mdbQ(nm) + '" style="flex:1.2;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px">' +
+        '<button class="btn-save btn-mini" onclick="mdbRenameVec(this)">重命名</button>' +
+        '</div>';
+    }).join("");
+    $("genTitle").textContent = "矢量数据修改名称";
+    $("genBody").innerHTML =
+      '<p style="font-size:13px;color:#555;margin-bottom:8px">改完点「重命名」即时生效；也可一次性「批量应用全部修改」。地图图层、导出（表格/ovkmz）统一使用新名称：</p>' +
+      '<div style="max-height:50vh;overflow:auto">' + listHtml + '</div>' +
+      '<div class="form-actions">' +
+        '<button class="btn-save" onclick="mdbRenameAllVec()">批量应用全部修改</button>' +
+        '<button class="btn-save" onclick="mdbRestoreNamesVec()">撤销修改（还原输入框）</button>' +
+        '<button class="btn-cancel" onclick="closeSheet(\'sheetGen\')">关闭</button>' +
+      '</div>' +
+      '<div id="vecRenResult" style="margin-top:10px"></div>';
+    openSheet("sheetGen");
+  }
+  window.mdbRestoreNamesVec = function () {
+    var inputs = document.querySelectorAll(".vecRenameInput");
+    for (var i = 0; i < inputs.length; i++) { try { inputs[i].value = inputs[i].getAttribute("data-old"); } catch (e) {} }
+    var el = $("vecRenResult"); if (el) el.innerHTML = '<p style="color:#555">已还原输入框为当前名称</p>';
+    toast("已还原");
+  };
+  window.mdbRenameVec = function (btn) {
+    try {
+      var inp = btn.parentNode.querySelector(".vecRenameInput");
+      var oldN = inp.getAttribute("data-old");
+      var newN = String(inp.value || "").trim();
+      if (!newN) { toast("名称不能为空"); return; }
+      if (newN === oldN) { toast("名称未变化"); return; }
+      if (window.__mdbData[newN]) { toast("已存在同名矢量数据：" + newN); return; }
+      var d = window.__mdbData[oldN]; if (!d) return;
+      d.fname = newN; window.__mdbData[newN] = d; delete window.__mdbData[oldN];
+      inp.setAttribute("data-old", newN);
+      var el = $("vecRenResult"); if (el) el.innerHTML = '<p style="color:#2b8a5d">已将「' + esc(oldN) + '」重命名为「' + esc(newN) + '」</p>';
+      toast("已重命名：" + newN);
+    } catch (e) { toast("重命名失败：" + (e && e.message ? e.message : e)); }
+  };
+  window.mdbRenameAllVec = function () {
+    try {
+      var inputs = document.querySelectorAll(".vecRenameInput"), cnt = 0, skip = [];
+      for (var i = 0; i < inputs.length; i++) {
+        var inp = inputs[i];
+        var oldN = inp.getAttribute("data-old");
+        var newN = String(inp.value || "").trim();
+        if (!newN || newN === oldN) continue;
+        if (window.__mdbData[newN]) { skip.push(newN); continue; }
+        var d = window.__mdbData[oldN]; if (!d) continue;
+        d.fname = newN; window.__mdbData[newN] = d; delete window.__mdbData[oldN];
+        inp.setAttribute("data-old", newN); cnt++;
+      }
+      var msg = "已批量重命名 " + cnt + " 个矢量项目";
+      if (skip.length) msg += "（跳过重名：" + skip.join("、") + "）";
+      var el = $("vecRenResult"); if (el) el.innerHTML = '<p style="color:#2b8a5d">' + esc(msg) + '</p>';
+      toast(msg);
+    } catch (e) { toast("批量重命名失败：" + (e && e.message ? e.message : e)); }
+  };
+
+  // ===== 矢量数据删除（逐个 / 勾选批量 / 清空，全部两步确认）=====
+  function openVecDelete() {
+    var names = Object.keys(window.__mdbData);
+    if (!names.length) { mdbEmptyTip("请先「导入矢量 mdb 数据」"); return; }
+    var listHtml = names.map(function (nm) {
+      var d = window.__mdbData[nm];
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+        '<input type="checkbox" class="vecDelChk" data-nm="' + mdbQ(nm) + '">' +
+        '<span style="flex:1;font-size:14px">' + esc(nm) + ' <span style="color:#888;font-size:12px">(' + d.count + ' 要素·' + mdbCrsLabel(d) + ')</span></span>' +
+        '<button class="btn-mini" onclick="mdbRemoveVecRefresh(\'' + mdbQ(nm) + '\')">删除</button>' +
+        '</div>';
+    }).join("");
+    $("genTitle").textContent = "矢量数据删除";
+    $("genBody").innerHTML =
+      '<p style="font-size:13px;color:#555;margin-bottom:8px">勾选后点「删除选中」批量移出天地图；也可逐个删除 / 清空全部。删除不可恢复：</p>' +
+      '<div style="max-height:50vh;overflow:auto">' + listHtml + '</div>' +
+      '<div class="form-actions">' +
+        '<button class="btn-save" id="mdbDelCheckedBtn" onclick="mdbDeleteCheckedVec(this)">删除选中</button>' +
+        '<button class="btn-save" id="mdbClearAllBtn" onclick="mdbClearAllVec(this)">清空全部</button>' +
+        '<button class="btn-cancel" onclick="closeSheet(\'sheetGen\')">关闭</button>' +
+      '</div>' +
+      '<div id="vecDelResult" style="margin-top:10px"></div>';
+    openSheet("sheetGen");
+  }
+  window.mdbRemoveVecRefresh = function (nm) { window.mdbRemoveLayer(nm); openVecDelete(); };
+  window.mdbDeleteCheckedVec = function (btn) {
+    try {
+      if (btn && !mdbDelArm(btn, "删除选中")) return;
+      MDB_DEL_ARMED = false;
+      var chks = document.querySelectorAll(".vecDelChk"), del = [];
+      for (var i = 0; i < chks.length; i++) { if (chks[i].checked) del.push(chks[i].getAttribute("data-nm")); }
+      if (!del.length) { toast("请先勾选要删除的矢量数据"); return; }
+      var cnt = 0;
+      for (var j = 0; j < del.length; j++) {
+        var nm = del[j];
+        if (window.__mdbData[nm]) { try { map.removeLayer(window.__mdbData[nm].layer); } catch (e) {} delete window.__mdbData[nm]; cnt++; }
+      }
+      openVecDelete();
+      var el = $("vecDelResult"); if (el) el.innerHTML = '<p style="color:#c0392b">已删除 ' + cnt + ' 个矢量项目</p>';
+      toast("已删除 " + cnt + " 个");
+    } catch (e) { toast("删除失败：" + (e && e.message ? e.message : e)); }
+  };
+  window.mdbClearAllVec = function (btn) {
+    try {
+      if (btn && !mdbDelArm(btn, "清空全部")) return;
+      MDB_DEL_ARMED = false;
+      var cnt = Object.keys(window.__mdbData).length;
+      Object.keys(window.__mdbData).forEach(function (nm) { try { map.removeLayer(window.__mdbData[nm].layer); } catch (e) {} });
+      window.__mdbData = {};
+      openVecDelete();
+      var el = $("vecDelResult"); if (el) el.innerHTML = '<p style="color:#c0392b">已清空全部矢量数据（' + cnt + ' 个）</p>';
+      toast("已清空全部矢量数据");
+    } catch (e) { toast("清空失败：" + (e && e.message ? e.message : e)); }
+  };
+
+  // ===== 导出矢量数据为电子表格（CSV，项目可选 / 导出全部）=====
+  // ===== 矢量数据管理 · 三路导入共用：统一落盘图层（确保显示/导出/切换/改名/删除一致）=====
+  function mdbAddLayerFromGeoJSON(geo, baseName, opts) {
+    opts = opts || {};
+    var feats = (geo && geo.features) ? geo.features.filter(function (f) { return f && f.geometry; }) : [];
+    if (!feats.length) { idle(); toast("没有可显示的几何要素" + (opts.srcLabel ? "（" + opts.srcLabel + "）" : "")); return; }
+    var layer = L.geoJSON(geo, {
+      style: { color: "#2e8b57", weight: 2, fillColor: "#7cc892", fillOpacity: 0.28 },
+      pointToLayer: function (feature, latlng) { return L.circleMarker(latlng, { radius: 5, color: "#c0392b", fillColor: "#e74c3c", fillOpacity: 0.9, weight: 2 }); },
+      onEachFeature: function (feature, ly) { try { if (feature.properties) ly.bindPopup(mdbPopupHtml(feature.properties || {}), { maxWidth: 300 }); } catch (e) {} }
+    });
+    if (window.__mdbData[baseName] && window.__mdbData[baseName].layer) { try { map.removeLayer(window.__mdbData[baseName].layer); } catch (e) {} }
+    var acc = [90, -90, 180, -180];
+    feats.forEach(function (f) {
+      var cs = [], g = f.geometry;
+      if (g.type === "Point") cs = [g.coordinates];
+      else if (g.type === "MultiPoint" || g.type === "LineString") cs = g.coordinates;
+      else if (g.type === "Polygon") g.coordinates.forEach(function (r) { cs = cs.concat(r); });
+      else if (g.type === "MultiPolygon") g.coordinates.forEach(function (p) { p.forEach(function (r) { cs = cs.concat(r); }); });
+      else if (g.type === "MultiLineString") g.coordinates.forEach(function (l) { cs = cs.concat(l); });
+      cs.forEach(function (c) { if (c[1] < acc[0]) acc[0] = c[1]; if (c[1] > acc[1]) acc[1] = c[1]; if (c[0] < acc[2]) acc[2] = c[0]; if (c[0] > acc[3]) acc[3] = c[0]; });
+    });
+    window.__mdbData[baseName] = { geojson: geo, layer: layer, visible: true, count: feats.length, fname: baseName, cols: opts.cols || [], crs: opts.crs || { wgs: true } };
+    map.addLayer(layer);
+    if (acc[0] <= acc[1] && acc[2] <= acc[3]) try { map.fitBounds([[acc[0], acc[2]], [acc[1], acc[3]]], { padding: [40, 40] }); } catch (e) {}
+    idle();
+    toast("已导入 " + baseName + "：" + feats.length + " 个要素" + (opts.srcLabel ? "（" + opts.srcLabel + "）" : ""));
+  }
+
+  // ===== 矢量数据管理 · 导入矢量数据电子表格（CSV，与「导出矢量数据为电子表格」格式一致）=====
+  function importVecSheet() {
+    if (pickBridgeReady("readFileText")) {
+      window.__vecImportMode = "csv";
+      toast("请选择 .csv 文件…");
+      window.Android.pickFiles("*/*");
+    } else { legacyImportVecSheet(); }
+  }
+  function legacyImportVecSheet() {
+    var inp = document.createElement("input");
+    inp.type = "file"; inp.accept = ".csv,text/csv";
+    inp.onchange = function () {
+      var f = this.files[0]; if (!f) return;
+      busy("正在读取电子表格…");
+      var fr = new FileReader();
+      fr.onload = function () { try { importVecSheetFromText(String(fr.result), f.name); } catch (e) { idle(); toast("导入失败：" + (e && e.message ? e.message : e)); } };
+      fr.onerror = function () { idle(); toast("读取文件失败"); };
+      fr.readAsText(f);
+    };
+    inp.click();
+  }
+  function mdbParseCsv(text) {
+    if (!text) return { header: [], rows: [] };
+    var s = String(text).replace(/^﻿/, "");
+    var rows = [], field = "", row = [], inQ = false, i = 0;
+    while (i < s.length) {
+      var ch = s[i];
+      if (inQ) {
+        if (ch === '"') { if (s[i + 1] === '"') { field += '"'; i += 2; continue; } inQ = false; i++; continue; }
+        field += ch; i++; continue;
+      }
+      if (ch === '"') { inQ = true; i++; continue; }
+      if (ch === ',') { row.push(field); field = ""; i++; continue; }
+      if (ch === '\r') { i++; continue; }
+      if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+      field += ch; i++;
+    }
+    if (field.length || row.length) { row.push(field); rows.push(row); }
+    if (!rows.length) return { header: [], rows: [] };
+    var header = rows[0].map(function (h) { return h.trim(); });
+    var out = [];
+    for (var r = 1; r < rows.length; r++) {
+      if (rows[r].length === 1 && rows[r][0].trim() === "") continue;
+      var obj = {};
+      for (var c = 0; c < header.length; c++) obj[header[c]] = (rows[r][c] != null ? rows[r][c] : "");
+      out.push(obj);
+    }
+    return { header: header, rows: out };
+  }
+  function mdbParseWkt(str) {
+    if (!str) return null;
+    var s = String(str).trim().replace(/\s+/g, " ");
+    var m;
+    if ((m = s.match(/^POLYGON\s*\(\(\s*(.*?)\s*\)\)$/i)) || (m = s.match(/^POLYGON\s*\(\s*(.*?)\s*\)$/i))) {
+      var rings = m[1].split("),(");
+      var poly = rings.map(function (rg) {
+        return rg.replace(/^\(/, "").replace(/\)$/, "").trim().split(",").map(function (p) {
+          var xy = p.trim().split(/\s+/); return [parseFloat(xy[0]), parseFloat(xy[1])];
+        });
+      });
+      return { type: "Polygon", coordinates: poly };
+    }
+    if (/^MULTIPOLYGON\s*\(/i.test(s)) {
+      var polys = s.substring(s.indexOf("(")).match(/\([^()]*\)(?:\s*,\s*\([^()]*\))*/g);
+      if (polys) {
+        var mp = polys.map(function (pg) {
+          var rings2 = pg.replace(/^\(/, "").replace(/\)$/, "").split("),(");
+          return rings2.map(function (rg) { return rg.replace(/^\(/, "").replace(/\)$/, "").trim().split(",").map(function (p) { var xy = p.trim().split(/\s+/); return [parseFloat(xy[0]), parseFloat(xy[1])]; }); });
+        });
+        return { type: "MultiPolygon", coordinates: mp };
+      }
+    }
+    if ((m = s.match(/^LINESTRING\s*\((.*)\)$/i))) {
+      return { type: "LineString", coordinates: m[1].trim().split(",").map(function (p) { var xy = p.trim().split(/\s+/); return [parseFloat(xy[0]), parseFloat(xy[1])]; }) };
+    }
+    if (/^MULTILINESTRING\s*\(/i.test(s)) {
+      var lss = s.substring(s.indexOf("(")).match(/\([^()]*\)(?:\s*,\s*\([^()]*\))*/g);
+      if (lss) return { type: "MultiLineString", coordinates: lss.map(function (ls) { return ls.replace(/^\(/, "").replace(/\)$/, "").trim().split(",").map(function (p) { var xy = p.trim().split(/\s+/); return [parseFloat(xy[0]), parseFloat(xy[1])]; }); }) };
+    }
+    if ((m = s.match(/^POINT\s*\((.*)\)$/i))) {
+      var pp = m[1].trim().split(/\s+/); return { type: "Point", coordinates: [parseFloat(pp[0]), parseFloat(pp[1])] };
+    }
+    if ((m = s.match(/^MULTIPOINT\s*\((.*)\)$/i))) {
+      return { type: "MultiPoint", coordinates: m[1].trim().split(",").map(function (p) { var xy = p.trim().split(/\s+/); return [parseFloat(xy[0]), parseFloat(xy[1])]; }) };
+    }
+    return null;
+  }
+  function importVecSheetFromText(text, fname) {
+    busy("正在解析电子表格…");
+    setTimeout(function () {
+      try {
+        var parsed = mdbParseCsv(text);
+        if (!parsed.header.length) { idle(); toast("CSV 无表头，无法导入"); return; }
+        var hasProj = parsed.header.indexOf("__项目") >= 0;
+        var reserved = ["__项目", "WKT", "经度", "纬度"];
+        var attrCols = parsed.header.filter(function (h) { return reserved.indexOf(h) < 0; });
+        var groups = {};
+        parsed.rows.forEach(function (row) {
+          var pname = hasProj ? (row["__项目"] || "未命名项目") : "矢量数据";
+          if (!groups[pname]) groups[pname] = [];
+          var props = {};
+          attrCols.forEach(function (c) { props[c] = row[c]; });
+          var geom = null;
+          if (row.WKT) geom = mdbParseWkt(row.WKT);
+          else if (row.经度 && row.纬度) {
+            var lon = parseFloat(row.经度), lat = parseFloat(row.纬度);
+            if (!isNaN(lon) && !isNaN(lat)) geom = { type: "Point", coordinates: [lon, lat] };
+          }
+          groups[pname].push({ type: "Feature", properties: props, geometry: geom });
+        });
+        var keys = Object.keys(groups);
+        if (!keys.length) { idle(); toast("CSV 无任何数据行"); return; }
+        var total = 0;
+        keys.forEach(function (k) {
+          mdbAddLayerFromGeoJSON({ type: "FeatureCollection", features: groups[k] }, k, { cols: attrCols, srcLabel: "电子表格" });
+          total += groups[k].length;
+        });
+        idle();
+        toast("已从电子表格导入 " + keys.length + " 个项目、" + total + " 条要素");
+      } catch (e) { idle(); toast("导入失败：" + (e && e.message ? e.message : e)); }
+    }, 30);
+  }
+
+  // ===== 矢量数据管理 · 导入奥维 ovkmz（与「导出矢量数据为奥维ovkmz格式」格式一致）=====
+  function importVecOvkmz() {
+    if (typeof JSZip === "undefined") { toast("JSZip 未加载，无法读取 ovkmz"); return; }
+    if (pickBridgeReady("readFileBase64")) {
+      window.__vecImportMode = "ovkmz";
+      toast("请选择 .ovkmz/.kmz/.kml 文件…");
+      window.Android.pickFiles("*/*");
+    } else { legacyImportVecOvkmz(); }
+  }
+  function legacyImportVecOvkmz() {
+    var inp = document.createElement("input");
+    inp.type = "file"; inp.accept = ".ovkmz,.kmz,.kml,application/vnd.google-earth.kml+xml";
+    inp.onchange = function () {
+      var f = this.files[0]; if (!f) return;
+      busy("正在读取 ovkmz…");
+      var fr = new FileReader();
+      if (/\.kml$/i.test(f.name)) {
+        fr.onload = function () { try { importVecOvkmzFromText(String(fr.result), f.name); } catch (e) { idle(); toast("导入失败：" + (e && e.message ? e.message : e)); } };
+        fr.onerror = function () { idle(); toast("读取失败"); }; fr.readAsText(f);
+      } else {
+        fr.onload = function () { try { importVecOvkmzFromBase64((fr.result.split(",")[1] || ""), f.name); } catch (e) { idle(); toast("导入失败：" + (e && e.message ? e.message : e)); } };
+        fr.onerror = function () { idle(); toast("读取失败"); }; fr.readAsDataURL(f);
+      }
+    };
+    inp.click();
+  }
+  function mdbKmlCoord(s) { var t = String(s).trim().split(","); var lon = parseFloat(t[0]), lat = parseFloat(t[1]); if (isNaN(lon) || isNaN(lat)) return null; return [lon, lat]; }
+  function mdbKmlCoords(s) { var out = []; String(s).trim().split(/\s+/).forEach(function (tok) { var c = mdbKmlCoord(tok); if (c) out.push(c); }); return out; }
+  function mdbKmlGeom(body) {
+    var pm = body.match(/<Point>[\s\S]*?<coordinates>([\s\S]*?)<\/coordinates>/);
+    if (pm) { var c = mdbKmlCoord(pm[1]); if (c) return { type: "Point", coordinates: c }; }
+    var ls = body.match(/<LineString>[\s\S]*?<coordinates>([\s\S]*?)<\/coordinates>/);
+    if (ls) { var lc = mdbKmlCoords(ls[1]); if (lc && lc.length) return { type: "LineString", coordinates: lc }; }
+    var poly = body.match(/<Polygon>([\s\S]*?)<\/Polygon>/);
+    if (poly) {
+      var rings = [];
+      var ob = poly[1].match(/<outerBoundaryIs>[\s\S]*?<coordinates>([\s\S]*?)<\/coordinates>/);
+      if (ob) { var oc = mdbKmlCoords(ob[1]); if (oc && oc.length) rings.push(oc); }
+      var ibre = /<innerBoundaryIs>[\s\S]*?<coordinates>([\s\S]*?)<\/coordinates>/g, ib;
+      while ((ib = ibre.exec(poly[1]))) { var ic = mdbKmlCoords(ib[1]); if (ic && ic.length) rings.push(ic); }
+      if (rings.length) return { type: "Polygon", coordinates: rings };
+    }
+    return null;
+  }
+  function mdbParseKml(text) {
+    if (!text) return [];
+    var feats = [];
+    function extractPlacemarks(xml, parentName) {
+      var re = /<Placemark\b[^>]*>([\s\S]*?)<\/Placemark>/g, m;
+      while ((m = re.exec(xml))) {
+        var body = m[1];
+        var nm = (body.match(/<name>([\s\S]*?)<\/name>/) || [,""])[1];
+        nm = nm.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").trim() || "要素";
+        var ext = {};
+        var de = body.match(/<ExtendedData>([\s\S]*?)<\/ExtendedData>/);
+        if (de) {
+          var dr = /<Data\s+name="([^"]*)">\s*<value>([\s\S]*?)<\/value>/g, d;
+          while ((d = dr.exec(de[1]))) ext[d[1]] = d[2].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").trim();
+        }
+        feats.push({ type: "Feature", properties: ext, geometry: mdbKmlGeom(body), __name: parentName || nm });
+      }
+    }
+    var fre = /<Folder\b[^>]*>([\s\S]*?)<\/Folder>/g, fm;
+    while ((fm = fre.exec(text))) {
+      var fnm = (fm[1].match(/<name>([\s\S]*?)<\/name>/) || [,""])[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").trim() || "矢量数据";
+      extractPlacemarks(fm[1], fnm);
+    }
+    var stripped = text.replace(/<Folder\b[^>]*>[\s\S]*?<\/Folder>/g, "");
+    extractPlacemarks(stripped, null);
+    return feats;
+  }
+  function buildVecFromKmlFeats(feats, fname) {
+    if (!feats || !feats.length) { idle(); toast("KML 未解析出任何要素"); return; }
+    var groups = {};
+    feats.forEach(function (f) {
+      var pname = f.__name || fname || "矢量数据";
+      if (!groups[pname]) groups[pname] = [];
+      var props = {}; for (var kk in f.properties) if (f.properties.hasOwnProperty(kk)) props[kk] = f.properties[kk];
+      groups[pname].push({ type: "Feature", properties: props, geometry: f.geometry });
+    });
+    var keys = Object.keys(groups);
+    var total = 0;
+    keys.forEach(function (k) {
+      var fc = { type: "FeatureCollection", features: groups[k] };
+      var attrCols = (groups[k][0] && groups[k][0].properties) ? Object.keys(groups[k][0].properties) : [];
+      mdbAddLayerFromGeoJSON(fc, k, { cols: attrCols, srcLabel: "ovkmz" });
+      total += groups[k].length;
+    });
+    idle();
+    toast("已从 ovkmz 导入 " + keys.length + " 个项目、" + total + " 条要素");
+  }
+  function importVecOvkmzFromText(text, fname) {
+    busy("正在解析 KML…");
+    setTimeout(function () {
+      try { buildVecFromKmlFeats(mdbParseKml(text), fname); }
+      catch (e) { idle(); toast("导入失败：" + (e && e.message ? e.message : e)); }
+    }, 30);
+  }
+  function importVecOvkmzFromBase64(b64, fname) {
+    busy("正在解析 ovkmz…");
+    setTimeout(function () {
+      try {
+        if (typeof JSZip === "undefined") { idle(); toast("JSZip 未加载，无法读取 ovkmz"); return; }
+        JSZip.loadAsync(b64, { base64: true }).then(function (zip) {
+          var kmlName = Object.keys(zip.files).filter(function (n) { return /doc\.kml$/i.test(n); })[0]
+                    || Object.keys(zip.files).filter(function (n) { return /\.kml$/i.test(n); })[0];
+          if (!kmlName) { idle(); toast("ovkmz 内未找到 kml 文件"); return; }
+          return zip.file(kmlName).async("string");
+        }).then(function (kml) {
+          if (!kml) return;
+          buildVecFromKmlFeats(mdbParseKml(kml), fname);
+        }).catch(function (e) { idle(); toast("ovkmz 解析失败：" + (e && e.message ? e.message : e)); });
+      } catch (e) { idle(); toast("导入失败：" + (e && e.message ? e.message : e)); }
+    }, 30);
+  }
+
+
+  function openExportVectorSheet() {
+    var names = Object.keys(window.__mdbData);
+    if (!names.length) { mdbEmptyTip("请先「导入矢量 mdb 数据」"); return; }
+    var listHtml = names.map(function (nm) {
+      var d = window.__mdbData[nm];
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+        '<span style="flex:1;font-size:14px">' + esc(nm) +
+        ' <span style="color:#888;font-size:12px">(' + d.count + ' 要素·' + (d.cols ? d.cols.length : 0) + ' 字段)</span></span>' +
+        '<button class="btn-save btn-mini" onclick="mdbExportCsv(\'' + mdbQ(nm) + '\')">导出表格</button>' +
+        '</div>';
+    }).join("");
+    $("genTitle").textContent = "导出矢量数据为电子表格（项目可选）";
+    $("genBody").innerHTML =
+      '<p style="font-size:13px;color:#555;margin-bottom:8px">每个矢量项目导出为一个 CSV（UTF-8 BOM，Excel/WPS 直接打开，不乱码）；含全部属性 + 经度/纬度（质心）+ WKT 几何：</p>' +
+      '<div style="max-height:50vh;overflow:auto">' + listHtml + '</div>' +
+      '<div class="form-actions">' +
+        '<button class="btn-save" onclick="mdbExportCsv(\'\')">导出全部（合并一个表）</button>' +
+        '<button class="btn-cancel" onclick="closeSheet(\'sheetGen\')">关闭</button>' +
+      '</div>' +
+      '<div id="expVecResult" style="margin-top:10px"></div>';
+    openSheet("sheetGen");
+  }
+  window.mdbExportCsv = function (nm) {
+    try {
+      var targets = nm ? [nm] : Object.keys(window.__mdbData);
+      if (!targets.length || !Object.keys(window.__mdbData).length) { toast("没有可导出的矢量项目"); return; }
+      busy("正在生成电子表格…");
+      setTimeout(function () {
+        try {
+          var allRows = [], allCols = [];
+          targets.forEach(function (n) {
+            var d = window.__mdbData[n]; if (!d) return;
+            var cols = d.cols || [];
+            cols.forEach(function (c) { if (allCols.indexOf(c) < 0) allCols.push(c); });
+            d.geojson.features.forEach(function (f) {
+              var row = { __项目: n };
+              cols.forEach(function (c) { row[c] = (f.properties && f.properties[c] != null) ? f.properties[c] : ""; });
+              var cen = mdbCentroid(f.geometry);
+              row["经度"] = cen ? cen[0] : ""; row["纬度"] = cen ? cen[1] : "";
+              row["WKT"] = mdbWkt(f.geometry);
+              allRows.push(row);
+            });
+          });
+          if (!allRows.length) { idle(); toast("没有可导出的要素"); return; }
+          var header = ["__项目"].concat(allCols, ["经度", "纬度", "WKT"]);
+          var lines = [header.map(mdbCsvCell).join(",")];
+          allRows.forEach(function (r) { lines.push(header.map(function (h) { return mdbCsvCell(r[h] != null ? r[h] : ""); }).join(",")); });
+          var csv = "﻿" + lines.join("\r\n");
+          var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+          var fileName = mdbSafeName(nm ? nm : "全部矢量", "_矢量数据.csv");
+          mdbSaveOut(blob, fileName);
+          var el = $("expVecResult");
+          if (el) el.innerHTML = '<p style="color:#2b8a5d">已导出 ' + allRows.length + ' 条要素、' + header.length + ' 列 → ' + esc(fileName) + '</p>';
+          idle();
+        } catch (e) { idle(); toast("导出失败：" + (e && e.message ? e.message : e)); }
+      }, 30);
+    } catch (e) { try { idle(); } catch (e2) {} toast("导出失败：" + (e && e.message ? e.message : e)); }
+  };
+  function mdbCentroid(geom) {
+    if (!geom) return null;
+    var coords = [];
+    if (geom.type === "Point") coords = [geom.coordinates];
+    else if (geom.type === "MultiPoint" || geom.type === "LineString") coords = geom.coordinates;
+    else if (geom.type === "Polygon") geom.coordinates.forEach(function (r) { coords = coords.concat(r); });
+    if (!coords.length) return null;
+    var s1 = 0, s2 = 0;
+    coords.forEach(function (c) { s1 += c[1]; s2 += c[0]; });
+    return [+(s2 / coords.length).toFixed(8), +(s1 / coords.length).toFixed(8)];
+  }
+  function mdbWkt(geom) {
+    if (!geom) return "";
+    function pt(c) { return c[0] + " " + c[1]; }
+    if (geom.type === "Point") return "POINT(" + pt(geom.coordinates) + ")";
+    if (geom.type === "MultiPoint") return "MULTIPOINT(" + geom.coordinates.map(pt).join(",") + ")";
+    if (geom.type === "LineString") return "LINESTRING(" + geom.coordinates.map(pt).join(",") + ")";
+    if (geom.type === "Polygon") return "POLYGON((" + geom.coordinates.map(function (r) { return r.map(pt).join(","); }).join("),(") + "))";
+    return "";
+  }
+
+  // ===== 导出矢量数据为奥维 ovkmz（KMZ：doc.kml + 全部属性 + WGS84 几何）=====
+  function mdbEscXml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+  function mdbEscXmlText(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\]\]>/g, "]]&gt;"); }
+  function mdbOvPoint(c) { return c[0] + "," + c[1] + ",0"; }
+  function mdbFeatureName(props, idx) {
+    try {
+      for (var i = 0; i < MDB_PRIORITY.length; i++) {
+        var k = MDB_PRIORITY[i];
+        if (props[k] != null && String(props[k]).trim() !== "") return String(props[k]);
+      }
+    } catch (e) {}
+    return "要素" + (idx + 1);
+  }
+  function mdbFeatureToOvPlacemark(f, projName, idx) {
+    if (!f || !f.geometry) return null;
+    var props = f.properties || {}, geom = f.geometry, body = "";
+    if (geom.type === "Polygon") {
+      var rings = geom.coordinates.map(function (ring) { return ring.map(mdbOvPoint).join(" "); });
+      body = "<Polygon><tessellate>1</tessellate>" + rings.map(function (r, i) {
+        var tag = i === 0 ? "outerBoundaryIs" : "innerBoundaryIs";
+        return "<" + tag + "><LinearRing><coordinates>" + r + "</coordinates></LinearRing></" + tag + ">";
+      }).join("") + "</Polygon>";
+    } else if (geom.type === "LineString") {
+      body = "<LineString><coordinates>" + geom.coordinates.map(mdbOvPoint).join(" ") + "</coordinates></LineString>";
+    } else if (geom.type === "Point") {
+      body = "<Point><coordinates>" + mdbOvPoint(geom.coordinates) + "</coordinates></Point>";
+    } else if (geom.type === "MultiPoint") {
+      body = "<MultiGeometry>" + geom.coordinates.map(function (c) { return "<Point><coordinates>" + mdbOvPoint(c) + "</coordinates></Point>"; }).join("") + "</MultiGeometry>";
+    } else { return null; }
+    var keys = Object.keys(props), ordered = [], rest = [];
+    try {
+      for (var pi = 0; pi < MDB_PRIORITY.length; pi++) { var kp = MDB_PRIORITY[pi]; if (keys.indexOf(kp) >= 0) ordered.push(kp); }
+    } catch (e) {}
+    keys.forEach(function (k) { if (ordered.indexOf(k) < 0) rest.push(k); }); rest.sort();
+    var all = ordered.concat(rest);
+    var ext = all.length ? "<ExtendedData>" + all.map(function (k) {
+      var v = props[k]; if (v == null) v = "";
+      return '<Data name="' + mdbEscXml(k) + '"><value>' + mdbEscXml(String(v)) + '</value></Data>';
+    }).join("") + "</ExtendedData>" : "";
+    var descRows = all.map(function (k) {
+      var v = props[k]; if (v == null) v = "—";
+      return "<tr><td style='color:#888;padding:2px 6px;border-bottom:1px dashed #eee'>" + mdbEscXmlText(k) +
+        "</td><td style='padding:2px 6px;border-bottom:1px dashed #eee'>" + mdbEscXmlText(String(v)) + "</td></tr>";
+    }).join("");
+    var desc = "<![CDATA[<div style='font-size:13px'><div style='font-weight:bold;margin-bottom:4px'>项目：" +
+      mdbEscXmlText(projName) + "</div><table>" + descRows + "</table></div>]]>";
+    return '<Placemark><name>' + mdbEscXml(mdbFeatureName(props, idx)) + '</name>' +
+      '<styleUrl>#vecOvStyle</styleUrl>' +
+      '<description>' + desc + '</description>' + ext + body + '</Placemark>';
+  }
+  function openExportOvkmz() {
+    var names = Object.keys(window.__mdbData);
+    if (!names.length) { mdbEmptyTip("请先「导入矢量 mdb 数据」"); return; }
+    var listHtml = names.map(function (nm) {
+      var d = window.__mdbData[nm];
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+        '<span style="flex:1;font-size:14px">' + esc(nm) +
+        ' <span style="color:#888;font-size:12px">(' + d.count + ' 要素·' + (d.cols ? d.cols.length : 0) + ' 字段)</span></span>' +
+        '<button class="btn-save btn-mini" onclick="mdbExportOvkmz(\'' + mdbQ(nm) + '\')">导出ovkmz</button>' +
+        '</div>';
+    }).join("");
+    $("genTitle").textContent = "导出矢量数据为奥维ovkmz格式（项目可选）";
+    $("genBody").innerHTML =
+      '<p style="font-size:13px;color:#555;margin-bottom:8px">每个矢量项目导出为一个 .ovkmz（KMZ），奥维互动地图可直接打开导入；含全部属性与 WGS84 几何：</p>' +
+      '<div style="max-height:50vh;overflow:auto">' + listHtml + '</div>' +
+      '<div class="form-actions">' +
+        '<button class="btn-save" onclick="mdbExportOvkmz(\'\')">导出全部（一个包·按项目分目录）</button>' +
+        '<button class="btn-cancel" onclick="closeSheet(\'sheetGen\')">关闭</button>' +
+      '</div>' +
+      '<div id="expOvResult" style="margin-top:10px"></div>';
+    openSheet("sheetGen");
+  }
+  window.mdbExportOvkmz = function (nm) {
+    try {
+      if (typeof JSZip === "undefined") { toast("JSZip 未加载，无法生成 ovkmz"); return; }
+      var targets = nm ? [nm] : Object.keys(window.__mdbData);
+      targets = targets.filter(function (n) { return !!window.__mdbData[n]; });
+      if (!targets.length) { toast("没有可导出的矢量项目"); return; }
+      busy("正在生成 ovkmz…");
+      setTimeout(function () {
+        try {
+          var totalFeat = 0, pms = [];
+          targets.forEach(function (n) {
+            var d = window.__mdbData[n]; if (!d) return;
+            var inner = "";
+            d.geojson.features.forEach(function (f, idx) {
+              var pm = mdbFeatureToOvPlacemark(f, n, idx);
+              if (pm) { inner += pm + "\n"; totalFeat++; }
+            });
+            if (!inner) return;
+            pms.push(targets.length === 1 ? inner : '<Folder><name>' + mdbEscXml(n) + '</name>\n' + inner + '</Folder>\n');
+          });
+          if (!totalFeat) { idle(); toast("没有可导出的几何要素"); return; }
+          var docName = nm ? nm : ("全部矢量_" + getTodayStr());
+          var fileBase = nm ? (nm + "_ovkmz") : ("全部矢量_ovkmz_" + getTodayStr());
+          var kml = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+            '<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">\n' +
+            '<Document>\n<name>' + mdbEscXml(docName) + '</name>\n' +
+            '<Style id="vecOvStyle">' +
+              '<LineStyle><color>ff2e8b57</color><width>2</width></LineStyle>' +
+              '<PolyStyle><color>4f7cc892</color><fill>1</fill><outline>1</outline></PolyStyle>' +
+            '</Style>\n' +
+            pms.join("\n") + '</Document>\n</kml>';
+          var zip = new JSZip();
+          zip.file("doc.kml", kml);
+          zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } }).then(function (blob) {
+            var fileName = String(fileBase).replace(/[\\/:*?"<>|]/g, "_") + ".ovkmz";
+            mdbSaveOut(blob, fileName);
+            var el = $("expOvResult");
+            if (el) el.innerHTML = '<p style="color:#2b8a5d">已导出 ' + totalFeat + ' 个要素 → ' + esc(fileName) + '（奥维互动地图可直接打开）</p>';
+            idle();
+            toast("已导出 ovkmz：" + totalFeat + " 个要素");
+          }).catch(function (e) { idle(); toast("ovkmz 生成失败：" + (e && e.message ? e.message : e)); });
+        } catch (e) { idle(); toast("导出失败：" + (e && e.message ? e.message : e)); }
+      }, 30);
+    } catch (e) { try { idle(); } catch (e2) {} toast("导出失败：" + (e && e.message ? e.message : e)); }
+  };
+
+
 
   function legacyImportKmz() {
 
