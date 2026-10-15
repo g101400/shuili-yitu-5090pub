@@ -27,7 +27,7 @@ import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-TOKEN = "61691764ff68bf341c4c9c4770b24b5f"  # 浏览器端 token（服务器端 token 直连被 403 拦截）
+TOKEN = ""  # 浏览器端 token（服务器端 token 直连被 403 拦截）
 TILE_URL = "https://t{s}.tianditu.gov.cn/DataServer?T=vec_w&x={x}&y={y}&l={z}&tk=" + TOKEN
 SUBDOMAINS = ["0", "1", "2", "3", "4", "5", "6", "7"]
 # 默认怀柔区行政范围（东经,北纬 西南-东北）
