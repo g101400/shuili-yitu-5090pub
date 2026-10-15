@@ -162,11 +162,11 @@
 
   // v3.45：从 localStorage 读取用户配置的密钥（防过期/被风控后用户自换），缺省回退到内置值
 
-  var TOKEN_BROWSER_DEFAULT = "61691764ff68bf341c4c9c4770b24b5f";
+  var TOKEN_BROWSER_DEFAULT = "";
 
   // 服务器端脚本拉取瓦片用此 token（本应用为纯前端，不直接使用，仅备查）
 
-  var TOKEN_SERVER = "d258e3622cb1755b59a59e4b7ac6d96e";
+  var TOKEN_SERVER = "";
 
   // 本应用在 WebView 中运行，使用浏览器端 token；优先用户在「修改/添加天地图密钥」里配置的密钥
 
